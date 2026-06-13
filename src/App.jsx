@@ -4,7 +4,7 @@ import {
   FileText, Wallet, FileSignature, Receipt, BarChart3, Building2,
   Plus, Trash2, Pencil, X, Check, Eye, Download,
   PartyPopper, Sparkles, ChevronLeft, ChevronRight, Grid3x3, List,
-  Image as ImageIcon, ArrowUpRight, ArrowDownRight, TrendingUp, LogOut, RefreshCw
+  Image as ImageIcon, ArrowUpRight, ArrowDownRight, TrendingUp, LogOut, RefreshCw, Menu
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
@@ -258,28 +258,33 @@ const NAV_ITEMS = [
   { id: 'company', label: 'Empresa', icon: Building2, color: '#8A84A3' },
 ];
 
-function Sidebar({ active, setActive, companyName, onLogout, syncing }) {
-  return (
-    <aside style={{
-      width: 232, background: '#fff', borderRight: '1px solid #F1EEFA',
-      display: 'flex', flexDirection: 'column', flexShrink: 0,
-      height: '100vh', position: 'sticky', top: 0,
-    }}>
+function Sidebar({ active, setActive, companyName, onLogout, syncing, mobileOpen, onMobileClose }) {
+  const NavContent = () => (
+    <>
       <div style={{ padding: '24px 20px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{
           width: 42, height: 42, borderRadius: 14,
           background: 'linear-gradient(135deg,#FFB84C,#FF6B9D)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 6px 14px -6px rgba(255,107,157,0.5)',
+          boxShadow: '0 6px 14px -6px rgba(255,107,157,0.5)', flexShrink: 0,
         }}>
           <PartyPopper size={22} color="#fff" strokeWidth={2.3} />
         </div>
-        <div>
-          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: '#3A3550', margin: 0, lineHeight: 1.1 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, color: '#3A3550', margin: 0, lineHeight: 1.1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {companyName || 'BrincaGestor'}
           </p>
           <p style={{ fontSize: 11.5, color: '#B6AFD6', margin: 0, letterSpacing: 0.4 }}>gestão de locação</p>
         </div>
+        {/* Botão fechar no mobile */}
+        <button onClick={onMobileClose} style={{
+          display: 'none', width: 32, height: 32, borderRadius: 10, border: 'none',
+          background: '#F5F2FC', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer', color: '#8A84A3', flexShrink: 0,
+          ['@media (max-width: 768px)']: { display: 'flex' },
+        }} className="sidebar-close-btn">
+          <X size={18} />
+        </button>
       </div>
 
       <nav style={{ flex: 1, overflowY: 'auto', padding: '6px 12px' }}>
@@ -289,20 +294,18 @@ function Sidebar({ active, setActive, companyName, onLogout, syncing }) {
           return (
             <button
               key={item.id}
-              onClick={() => setActive(item.id)}
+              onClick={() => { setActive(item.id); onMobileClose(); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-                padding: '11px 14px', marginBottom: 4, borderRadius: 14,
+                padding: '13px 14px', marginBottom: 4, borderRadius: 14,
                 border: 'none', cursor: 'pointer', textAlign: 'left',
                 background: isActive ? `${item.color}18` : 'transparent',
                 color: isActive ? item.color : '#8A84A3',
-                fontWeight: isActive ? 700 : 600, fontSize: 14.5,
+                fontWeight: isActive ? 700 : 600, fontSize: 15,
                 fontFamily: 'var(--font-sans)', transition: 'all 0.12s ease',
               }}
-              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = '#FAF8FE'; }}
-              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
             >
-              <Icon size={19} strokeWidth={2.2} />
+              <Icon size={20} strokeWidth={2.2} />
               {item.label}
             </button>
           );
@@ -322,21 +325,61 @@ function Sidebar({ active, setActive, companyName, onLogout, syncing }) {
             <p style={{ fontSize: 11, color: '#A39EC0', margin: 0 }}>compartilhado na nuvem</p>
           </div>
         </div>
-        <button
-          onClick={onLogout}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            width: '100%', padding: '10px 14px', borderRadius: 14,
-            border: '1px solid #F2EFFB', background: 'transparent', cursor: 'pointer',
-            color: '#A39EC0', fontWeight: 700, fontSize: 13.5, fontFamily: 'var(--font-sans)',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#FFF0F2'; e.currentTarget.style.color = '#D6486A'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#A39EC0'; }}
-        >
+        <button onClick={onLogout} style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          width: '100%', padding: '10px 14px', borderRadius: 14,
+          border: '1px solid #F2EFFB', background: 'transparent', cursor: 'pointer',
+          color: '#A39EC0', fontWeight: 700, fontSize: 13.5, fontFamily: 'var(--font-sans)',
+        }}>
           <LogOut size={16} strokeWidth={2.2} /> Sair
         </button>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* CSS global para responsividade */}
+      <style>{`
+        @media (max-width: 768px) {
+          .sidebar-desktop { display: none !important; }
+          .sidebar-close-btn { display: flex !important; }
+        }
+        @media (min-width: 769px) {
+          .sidebar-overlay { display: none !important; }
+          .sidebar-drawer { display: none !important; }
+        }
+      `}</style>
+
+      {/* Sidebar desktop (fixa, visível só em tela grande) */}
+      <aside className="sidebar-desktop" style={{
+        width: 232, background: '#fff', borderRight: '1px solid #F1EEFA',
+        display: 'flex', flexDirection: 'column', flexShrink: 0,
+        height: '100vh', position: 'sticky', top: 0,
+      }}>
+        <NavContent />
+      </aside>
+
+      {/* Overlay escuro ao abrir menu no mobile */}
+      {mobileOpen && (
+        <div className="sidebar-overlay" onClick={onMobileClose} style={{
+          position: 'fixed', inset: 0, background: 'rgba(58,53,80,0.45)',
+          zIndex: 200, touchAction: 'none',
+        }} />
+      )}
+
+      {/* Drawer mobile (desliza da esquerda) */}
+      <aside className="sidebar-drawer" style={{
+        position: 'fixed', top: 0, left: 0, bottom: 0, width: 280,
+        background: '#fff', display: 'flex', flexDirection: 'column',
+        zIndex: 201, overflowY: 'auto',
+        transform: mobileOpen ? 'translateX(0)' : 'translateX(-100%)',
+        transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
+        boxShadow: mobileOpen ? '4px 0 24px rgba(60,40,110,0.18)' : 'none',
+      }}>
+        <NavContent />
+      </aside>
+    </>
   );
 }
 
@@ -1854,6 +1897,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Carrega as fontes do Google Fonts uma vez
   React.useEffect(() => {
@@ -2066,10 +2110,56 @@ export default function App() {
       '--font-display': "'Baloo 2', system-ui, sans-serif",
       '--font-sans': "'Nunito', system-ui, sans-serif",
     }}>
-      <Sidebar active={active} setActive={setActive} companyName={company.name} onLogout={handleLogout} syncing={syncing} />
-      <main style={{ flex: 1, padding: '28px 32px', minWidth: 0 }}>
-        {page}
-      </main>
+      <style>{`
+        @media (max-width: 768px) {
+          .main-topbar { display: flex !important; }
+          .main-content { padding: 16px !important; }
+        }
+        * { box-sizing: border-box; }
+      `}</style>
+
+      <Sidebar
+        active={active} setActive={setActive} companyName={company.name}
+        onLogout={handleLogout} syncing={syncing}
+        mobileOpen={mobileMenuOpen} onMobileClose={() => setMobileMenuOpen(false)}
+      />
+
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        {/* Topbar mobile — só aparece em telas pequenas */}
+        <div className="main-topbar" style={{
+          display: 'none', alignItems: 'center', gap: 14,
+          padding: '14px 16px', background: '#fff',
+          borderBottom: '1px solid #F1EEFA', position: 'sticky', top: 0, zIndex: 100,
+        }}>
+          <button onClick={() => setMobileMenuOpen(true)} style={{
+            width: 42, height: 42, borderRadius: 14, border: 'none',
+            background: '#F5F2FC', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: '#5B4FCF', flexShrink: 0,
+          }}>
+            <Menu size={22} strokeWidth={2.3} />
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+              background: 'linear-gradient(135deg,#FFB84C,#FF6B9D)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <PartyPopper size={17} color="#fff" strokeWidth={2.3} />
+            </div>
+            <p style={{
+              fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16,
+              color: '#3A3550', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {company.name || 'BrincaGestor'}
+            </p>
+          </div>
+          {syncing && <RefreshCw size={18} color="#9B5DE5" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />}
+        </div>
+
+        <main className="main-content" style={{ flex: 1, padding: '28px 32px', minWidth: 0 }}>
+          {page}
+        </main>
+      </div>
     </div>
   );
 }
