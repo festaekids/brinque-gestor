@@ -1,0 +1,10 @@
+{
+  "name": "BrincaGestor",
+  "short_name": "BrincaGestor",
+  "description": "Gestão de locação de brinquedos infantis",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF9FF",
+  "theme_color": "#FF6B9D",
+  "icons": []
+}
