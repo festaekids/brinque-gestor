@@ -488,7 +488,7 @@ function Dashboard({ reservations, clients, toys, setActive }) {
                       </td>
                       <td style={{ padding: '12px 10px', color: '#3A3550', whiteSpace: 'nowrap' }}>
                         <div>Total: <b>{fmtMoney(r.total)}</b></div>
-                        <div style={{ fontSize: 12, color: '#A39EC0' }}>Sinal: {fmtMoney(r.deposit)} · Resta: {fmtMoney(r.total - r.deposit)}</div>
+                        <div style={{ fontSize: 12, color: '#A39EC0' }}>Desconto: {fmtMoney(r.deposit)} · Valor a pagar: {fmtMoney(r.total - r.deposit)}</div>
                       </td>
                       <td style={{ padding: '12px 10px' }}>
                         <Badge bg={st.bg} color={st.text}>{st.label}</Badge>
@@ -882,7 +882,7 @@ function ReservationForm({ initial, toys, clients, reservations, onSave, onCance
     clientId: '', address: '',
     startDate: todayISO(), startTime: '10:00',
     endDate: '', endTime: '14:00',
-    items: [], total: '', deposit: '', notes: '', status: 'pendente',
+    items: [], total: '', discount: '', notes: '', status: 'pendente',
   });
   const [clientSearch, setClientSearch] = useState('');
   const [showClientList, setShowClientList] = useState(false);
@@ -913,21 +913,36 @@ function ReservationForm({ initial, toys, clients, reservations, onSave, onCance
 
   const toggleToy = (toyId, free) => {
     setForm((f) => {
+      let newItems;
       const exists = f.items.find((i) => i.toyId === toyId);
       if (exists) {
-        return { ...f, items: f.items.filter((i) => i.toyId !== toyId) };
+        newItems = f.items.filter((i) => i.toyId !== toyId);
+      } else {
+        if (free <= 0) return f;
+        newItems = [...f.items, { toyId, quantity: 1 }];
       }
-      if (free <= 0) return f;
-      return { ...f, items: [...f.items, { toyId, quantity: 1 }] };
+      // Calcular total automaticamente somando preço × quantidade de cada brinquedo selecionado
+      const newTotal = newItems.reduce((sum, item) => {
+        const toy = toys.find((t) => t.id === item.toyId);
+        return sum + (Number(toy?.price) || 0) * item.quantity;
+      }, 0);
+      return { ...f, items: newItems, total: newTotal > 0 ? newTotal : f.total };
     });
   };
 
   const setItemQty = (toyId, qty, free) => {
     const q = Math.max(1, Math.min(qty, free));
-    setForm((f) => ({ ...f, items: f.items.map((i) => (i.toyId === toyId ? { ...i, quantity: q } : i)) }));
+    setForm((f) => {
+      const newItems = f.items.map((i) => (i.toyId === toyId ? { ...i, quantity: q } : i));
+      const newTotal = newItems.reduce((sum, item) => {
+        const toy = toys.find((t) => t.id === item.toyId);
+        return sum + (Number(toy?.price) || 0) * item.quantity;
+      }, 0);
+      return { ...f, items: newItems, total: newTotal > 0 ? newTotal : f.total };
+    });
   };
 
-  const remaining = (Number(form.total) || 0) - (Number(form.deposit) || 0);
+  const remaining = (Number(form.total) || 0) - (Number(form.discount) || 0);
 
   const canSave = form.clientId && form.address && form.startDate && form.startTime && form.endTime && form.items.length > 0;
 
@@ -1059,8 +1074,8 @@ function ReservationForm({ initial, toys, clients, reservations, onSave, onCance
         <p style={{ fontSize: 14, fontWeight: 700, color: '#3A3550', margin: '0 0 10px' }}>Valores</p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
           <Field label="Valor total (R$)"><Input type="number" min={0} placeholder="0" value={form.total} onChange={(e) => setForm({ ...form, total: e.target.value })} /></Field>
-          <Field label="Valor do sinal (R$)"><Input type="number" min={0} placeholder="0" value={form.deposit} onChange={(e) => setForm({ ...form, deposit: e.target.value })} /></Field>
-          <Field label="Valor restante (R$)"><Input readOnly value={fmtMoney(remaining)} style={{ background: '#F5F2FC', color: '#5B4FCF', fontWeight: 700 }} /></Field>
+          <Field label="Desconto (R$)"><Input type="number" min={0} placeholder="0" value={form.discount} onChange={(e) => setForm({ ...form, discount: e.target.value })} /></Field>
+          <Field label="Valor a pagar (R$)"><Input readOnly value={fmtMoney(remaining)} style={{ background: '#F5F2FC', color: '#5B4FCF', fontWeight: 700 }} /></Field>
         </div>
       </div>
 
@@ -1153,13 +1168,20 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
     setEditing(dayIso ? { startDate: dayIso, startTime: '10:00', endDate: dayIso, endTime: '14:00', clientId: '', address: '', items: [], total: '', deposit: '', notes: '', status: 'pendente' } : null);
     setModalOpen(true);
   };
-  const openEdit = (r) => { setEditing(r); setModalOpen(true); };
+  const openEdit = (r) => {
+    // Converte deposit para discount para o formulário
+    setEditing({ ...r, discount: r.deposit || '' });
+    setModalOpen(true);
+  };
 
   const handleSave = (form) => {
+    // Converte discount de volta para deposit ao salvar
+    const toSave = { ...form, deposit: form.discount || 0 };
+    delete toSave.discount;
     if (editing?.id) {
-      setReservations((prev) => prev.map((r) => (r.id === editing.id ? { ...r, ...form } : r)));
+      setReservations((prev) => prev.map((r) => (r.id === editing.id ? { ...r, ...toSave } : r)));
     } else {
-      setReservations((prev) => [...prev, { id: uid('r'), ...form }]);
+      setReservations((prev) => [...prev, { id: uid('r'), ...toSave }]);
     }
     setModalOpen(false);
   };
@@ -1274,7 +1296,7 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                   const st = STATUS_STYLES[r.status] || STATUS_STYLES.pendente;
                   const remaining = (Number(r.total) || 0) - (Number(r.deposit) || 0);
                   const toysList = r.items.map((i) => { const t = getToy(i.toyId); return `${i.quantity} ${t?.name || '—'}`; }).join(', ');
-                  const wMsg = `Parabéns, ${client?.name}! Sua reserva está confirmada.\n\nData e horário do evento: ${fmtDate(r.startDate)} às ${r.startTime} até ${r.endTime}\nEndereço do cliente: ${client?.address}\nEndereço da festa: ${r.address}\nBrinquedos contratados: ${toysList}\nValor total: ${fmtMoney(r.total)}\nValor sinal: ${fmtMoney(r.deposit)}\nValor restante: ${fmtMoney(remaining)}${r.notes ? `\nObservações: ${r.notes}` : ''}`;
+                  const wMsg = `Parabéns, ${client?.name}! Sua reserva está confirmada.\n\nData e horário do evento: ${fmtDate(r.startDate)} às ${r.startTime} até ${r.endTime}\nEndereço do cliente: ${client?.address}\nEndereço da festa: ${r.address}\nBrinquedos contratados: ${toysList}\nValor total: ${fmtMoney(r.total)}\nDesconto: ${fmtMoney(r.deposit)}\nValor restante: ${fmtMoney(remaining)}${r.notes ? `\nObservações: ${r.notes}` : ''}`;
                   return (
                     <tr key={r.id} style={{ borderBottom: '1px solid #F4F1FB', verticalAlign: 'top' }}>
                       <td style={{ padding: '14px 10px 14px 0', minWidth: 140 }}>
@@ -1311,8 +1333,8 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                       </td>
                       <td style={{ padding: '14px 10px', minWidth: 150 }}>
                         <p style={{ margin: 0, fontSize: 13, color: '#3A3550' }}>Total: <b>{fmtMoney(r.total)}</b></p>
-                        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>Sinal: {fmtMoney(r.deposit)}</p>
-                        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>Restante: {fmtMoney(remaining)}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>Desconto: {fmtMoney(r.deposit)}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>A pagar: {fmtMoney(remaining)}</p>
                       </td>
                       <td style={{ padding: '14px 10px', minWidth: 110 }}>
                         <button onClick={() => cycleStatus(r)} style={{ border: 'none', cursor: 'pointer', background: 'none', padding: 0 }} title="Clique para avançar o status">
@@ -1396,7 +1418,7 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                   <p style={{ fontSize: 18, fontWeight: 800, color: '#5B4FCF', margin: 0 }}>{fmtMoney(r.total)}</p>
                 </div>
                 <div style={{ background: '#FFF3E8', borderRadius: 14, padding: 14 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', margin: '0 0 4px' }}>Sinal</p>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', margin: '0 0 4px' }}>Desconto</p>
                   <p style={{ fontSize: 18, fontWeight: 800, color: '#FF9F4A', margin: 0 }}>{fmtMoney(r.deposit)}</p>
                 </div>
                 <div style={{ background: '#E4FAF1', borderRadius: 14, padding: 14 }}>
