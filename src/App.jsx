@@ -1118,6 +1118,7 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [viewingReservation, setViewingReservation] = useState(null);
 
   const year = refDate.getFullYear();
   const month = refDate.getMonth();
@@ -1286,6 +1287,7 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                       <Badge bg={st.bg} color={st.text}>{st.label}</Badge>
                     </button>
                     <div style={{ display: 'flex', gap: 6 }}>
+                      <IconBtn icon={Eye} onClick={() => setViewingReservation(r)} bg="#F5F2FC" color="#5B4FCF" title="Ver detalhes" />
                       <IconBtn icon={Pencil} onClick={() => openEdit(r)} bg="#F5F2FC" color="#5B4FCF" title="Editar" />
                       {client?.whatsapp && (
                         <IconBtn
@@ -1318,6 +1320,83 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editing?.id ? 'Editar reserva' : 'Nova reserva'} width={680}>
         <ReservationForm initial={editing} toys={toys} clients={clients} reservations={reservations} setClients={setClients} onSave={handleSave} onCancel={() => setModalOpen(false)} />
       </Modal>
+
+      {viewingReservation && (() => {
+        const r = viewingReservation;
+        const client = getClient(r.clientId);
+        const st = STATUS_STYLES[r.status] || STATUS_STYLES.pendente;
+        return (
+          <Modal open={!!viewingReservation} onClose={() => setViewingReservation(null)} title="Detalhes da Reserva" width={560}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Cliente</p>
+                  <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#3A3550' }}>{client?.name || '—'}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 13, color: '#8A84A3' }}>{client?.address}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 13, color: '#8A84A3' }}>{client?.whatsapp}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Data e Horário</p>
+                  <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: '#3A3550' }}>
+                    {fmtDate(r.startDate)} às {r.startTime} até
+                  </p>
+                  <p style={{ margin: '2px 0 0', fontWeight: 600, fontSize: 14, color: '#3A3550' }}>
+                    {r.endDate && r.endDate !== r.startDate ? `${fmtDate(r.endDate)} às ` : ''}{r.endTime}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Endereço da Festa</p>
+                <p style={{ margin: 0, fontWeight: 600, fontSize: 14, color: '#3A3550' }}>{r.address || '—'}</p>
+              </div>
+
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 8px' }}>Brinquedos</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {r.items.map((i, idx) => {
+                    const toy = getToy(i.toyId);
+                    return <Badge key={idx} bg="#E4FAF1" color="#1B8A4A">{toy?.name || '—'} ({i.quantity}x)</Badge>;
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+                <div style={{ background: '#F5F2FC', borderRadius: 14, padding: 14 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', margin: '0 0 4px' }}>Valor Total</p>
+                  <p style={{ fontSize: 18, fontWeight: 800, color: '#5B4FCF', margin: 0 }}>{fmtMoney(r.total)}</p>
+                </div>
+                <div style={{ background: '#FFF3E8', borderRadius: 14, padding: 14 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', margin: '0 0 4px' }}>Sinal</p>
+                  <p style={{ fontSize: 18, fontWeight: 800, color: '#FF9F4A', margin: 0 }}>{fmtMoney(r.deposit)}</p>
+                </div>
+                <div style={{ background: '#E4FAF1', borderRadius: 14, padding: 14 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', margin: '0 0 4px' }}>Restante</p>
+                  <p style={{ fontSize: 18, fontWeight: 800, color: '#1B8A4A', margin: 0 }}>{fmtMoney((Number(r.total)||0)-(Number(r.deposit)||0))}</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Status</p>
+                  <Badge bg={st.bg} color={st.text}>{st.label}</Badge>
+                </div>
+                {r.notes && (
+                  <div style={{ flex: 1, marginLeft: 24 }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Observações</p>
+                    <p style={{ margin: 0, fontSize: 13.5, color: '#6F6A8A', fontStyle: 'italic' }}>{r.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 4, borderTop: '1px solid #F2EFFB' }}>
+                <Button variant="ghost" onClick={() => setViewingReservation(null)}>Fechar</Button>
+                <Button onClick={() => { setViewingReservation(null); openEdit(r); }} icon={Pencil}>Editar Reserva</Button>
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
@@ -1457,7 +1536,56 @@ function FinancePage({ finance, setFinance }) {
 
   const handleDelete = (id) => setFinance((prev) => prev.filter((f) => f.id !== id));
 
-  const exportPdf = () => window.print();
+  const exportPdf = () => {
+    const totalReceitas = filtered.filter((f) => f.type === 'receita').reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    const totalDespesas = filtered.filter((f) => f.type === 'despesa').reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    const saldoPeriodo = totalReceitas - totalDespesas;
+    const mesAno = `${MONTHS_PT[month].toLowerCase()} ${year}`;
+    const rows = filtered.map((f) => `
+      <tr>
+        <td>${fmtDate(f.date)}</td>
+        <td><span class="${f.type}">${f.type === 'receita' ? 'Receita' : 'Despesa'}</span></td>
+        <td>${f.description}</td>
+        <td class="valor ${f.type}">${f.type === 'receita' ? '' : '-'}${fmtMoney(f.amount)}</td>
+      </tr>`).join('');
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8">
+    <title>Extrato Financeiro - ${mesAno}</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 800px; margin: 40px auto; color: #333; }
+      h1 { font-size: 22px; font-weight: bold; margin-bottom: 6px; }
+      p.sub { color: #888; font-size: 13px; margin-bottom: 24px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 28px; }
+      thead tr { background: #4A6CF7; color: #fff; }
+      th { padding: 10px 12px; text-align: left; font-size: 13px; }
+      td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #eee; }
+      span.receita { background: #E4FAF1; color: #1B8A4A; padding: 3px 10px; border-radius: 99px; font-weight: bold; font-size: 12px; }
+      span.despesa { background: #FCE0E4; color: #C13B5A; padding: 3px 10px; border-radius: 99px; font-weight: bold; font-size: 12px; }
+      td.valor.receita { color: #1B8A4A; font-weight: bold; text-align: right; }
+      td.valor.despesa { color: #C13B5A; font-weight: bold; text-align: right; }
+      th:last-child { text-align: right; }
+      .sumario { background: #F9F9FE; border: 1px solid #E8E6F4; border-radius: 12px; padding: 20px 24px; }
+      .sumario-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 14px; border-bottom: 1px solid #eee; }
+      .sumario-row:last-child { border-bottom: none; font-weight: bold; font-size: 16px; }
+      .verde { color: #1B8A4A; } .vermelho { color: #C13B5A; }
+    </style></head><body>
+    <h1>Extrato Financeiro - ${mesAno.charAt(0).toUpperCase() + mesAno.slice(1)}</h1>
+    <p class="sub">Gerado em ${fmtDate(todayISO())}</p>
+    <table>
+      <thead><tr><th>Data</th><th>Tipo</th><th>Descrição</th><th style="text-align:right">Valor</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="4" style="text-align:center;color:#aaa;padding:20px">Nenhum lançamento no período</td></tr>'}</tbody>
+    </table>
+    <div class="sumario">
+      <div class="sumario-row"><span>Total de Entradas:</span><span class="verde">${fmtMoney(totalReceitas)}</span></div>
+      <div class="sumario-row"><span>Total de Saídas:</span><span class="vermelho">${fmtMoney(totalDespesas)}</span></div>
+      <div class="sumario-row"><span>Valores Pendentes:</span><span>R$ 0,00</span></div>
+      <div class="sumario-row"><span>Saldo do Período:</span><span class="${saldoPeriodo >= 0 ? 'verde' : 'vermelho'}">${fmtMoney(saldoPeriodo)}</span></div>
+    </div>
+    <script>window.onload = () => window.print();</script>
+    </body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+  };
 
   return (
     <div>
@@ -1569,8 +1697,7 @@ function ReservationPicker({ reservations, clients, value, onChange }) {
 function BudgetsPage({ reservations, clients, toys, company, budgets, setBudgets }) {
   const [filterMonth, setFilterMonth] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
-  const [preview, setPreview] = useState(false);
-  const [previewContent, setPreviewContent] = useState('');
+  const [viewingBudget, setViewingBudget] = useState(null);
   const [editingBudget, setEditingBudget] = useState(null);
 
   const now = new Date();
@@ -1581,18 +1708,96 @@ function BudgetsPage({ reservations, clients, toys, company, budgets, setBudgets
   }).sort((a,b) => b.date > a.date ? 1 : -1);
 
   const getClient = (id) => clients.find((c) => c.id === id);
+  const getToy = (id) => toys.find((t) => t.id === id);
+  const calcTotal = (b) => (b.items||[]).reduce((s,i) => s + i.quantity * i.price, 0) + (Number(b.delivery)||0) - (Number(b.discount)||0);
 
-  const openPreview = (b) => {
+  const sendWhatsApp = (b) => {
     const client = getClient(b.clientId);
-    const itemsLines = (b.items || []).map((i) => {
-      const toy = toys.find((t) => t.id === i.toyId);
-      return `  • ${i.quantity}x ${toy?.name || '—'} (${toy?.size || '—'}) — ${fmtMoney(i.price)} un. = ${fmtMoney(i.quantity * i.price)}`;
-    }).join('\n');
+    if (!client?.whatsapp) return;
+    const total = calcTotal(b);
+    const toysList = (b.items||[]).map((i) => { const t = getToy(i.toyId); return `${i.quantity}x ${t?.name || '—'} — ${fmtMoney(i.price)} un.`; }).join('\n');
+    const msg = `Olá, ${client.name}! Segue o orçamento da SBS Brinquedos:\n\n📅 Data: ${b.noTime ? fmtDate(b.eventDate) : `${fmtDate(b.eventDate)} das ${b.startTime} às ${b.endTime}`}\n📍 Local: ${b.address || '—'}\n\n🎪 Brinquedos:\n${toysList}\n\n💰 Taxa de entrega: ${fmtMoney(b.delivery||0)}\n💸 Desconto: -${fmtMoney(b.discount||0)}\n✅ VALOR TOTAL: ${fmtMoney(total)}\n\n${b.notes ? `📝 Obs: ${b.notes}\n\n` : ''}Qualquer dúvida, estou à disposição para ajudar!\nFico no aguardo do seu retorno.`;
+    const phone = (client.whatsapp).replace(/\D/g, '');
+    window.open(`https://api.whatsapp.com/send/?phone=55${phone}&text=${encodeURIComponent(msg)}`);
+  };
+
+  const printBudget = (b) => {
+    const client = getClient(b.clientId);
     const subtotal = (b.items||[]).reduce((s,i) => s + i.quantity * i.price, 0);
     const total = subtotal + (Number(b.delivery)||0) - (Number(b.discount)||0);
-    const content = `ORÇAMENTO DE LOCAÇÃO\n${company.name || '[Nome da empresa]'}\n${company.phone ? `Tel: ${company.phone}` : ''}  ${company.email || ''}\n${company.address || ''}\n\nCliente: ${client?.name || '—'}\nEndereço do evento: ${b.address || '—'}\nData: ${fmtDate(b.eventDate)}   Horário: ${b.startTime || '—'} às ${b.endTime || '—'}\n\nItens orçados:\n${itemsLines}\n\nSubtotal: ${fmtMoney(subtotal)}\nTaxa de entrega: ${fmtMoney(b.delivery||0)}\nDesconto: -${fmtMoney(b.discount||0)}\nVALOR TOTAL: ${fmtMoney(total)}\n\nObservações: ${b.notes || '—'}\n\nOrçamento válido por 7 dias a partir de ${fmtDate(b.date)}.`;
-    setPreviewContent(content);
-    setPreview(true);
+    const toysRows = (b.items||[]).map((i) => {
+      const toy = getToy(i.toyId);
+      const imgTag = toy?.image ? `<img src="${toy.image}" width="40" height="40" style="border-radius:8px;object-fit:cover;vertical-align:middle;margin-right:8px">` : '';
+      return `<tr>
+        <td>${imgTag}${toy?.name || '—'}</td>
+        <td style="text-align:center">${toy?.size || '—'}</td>
+        <td style="text-align:center">${i.quantity}</td>
+        <td style="text-align:right">${fmtMoney(i.price)}</td>
+        <td style="text-align:right;font-weight:bold">${fmtMoney(i.quantity * i.price)}</td>
+      </tr>`;
+    }).join('');
+    const logoTag = company.logo ? `<img src="${company.logo}" height="60" style="max-width:180px;object-fit:contain">` : `<div style="font-size:28px;font-weight:900;color:#5B4FCF">${company.name || 'BrincaGestor'}</div>`;
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Orçamento</title>
+    <style>
+      body{font-family:Arial,sans-serif;max-width:780px;margin:40px auto;color:#333;padding:0 20px}
+      .header{text-align:center;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid #5B4FCF}
+      .header p{margin:3px 0;font-size:13px;color:#666}
+      h2{color:#5B4FCF;text-align:center;letter-spacing:2px;font-size:15px;margin:18px 0}
+      .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
+      .box{border:1px solid #eee;border-radius:10px;padding:14px}
+      .box h3{font-size:13px;color:#888;margin:0 0 8px;text-transform:uppercase;letter-spacing:.5px}
+      .box p{margin:3px 0;font-size:14px}
+      table{width:100%;border-collapse:collapse;margin-bottom:18px}
+      thead tr{background:#5B4FCF;color:#fff}
+      th{padding:10px 12px;text-align:left;font-size:13px}
+      td{padding:10px 12px;font-size:13px;border-bottom:1px solid #eee;vertical-align:middle}
+      th:last-child,th:nth-child(4),th:nth-child(3),th:nth-child(2){text-align:right}
+      td:last-child,td:nth-child(4),td:nth-child(3),td:nth-child(2){text-align:right}
+      .totais{margin-left:auto;width:280px}
+      .totais-row{display:flex;justify-content:space-between;padding:7px 0;font-size:14px;border-bottom:1px solid #eee}
+      .totais-row.final{font-size:17px;font-weight:bold;color:#5B4FCF;border-bottom:none}
+      .footer{text-align:center;font-size:12px;color:#aaa;margin-top:32px;padding-top:16px;border-top:1px solid #eee}
+    </style></head><body>
+    <div class="header">
+      ${logoTag}
+      <div style="margin-top:8px">
+        ${company.name ? `<p style="font-size:18px;font-weight:bold;color:#333;margin:6px 0">${company.name}</p>` : ''}
+        ${company.cnpj ? `<p>CNPJ: ${company.cnpj}</p>` : ''}
+        ${company.address ? `<p>${company.address}</p>` : ''}
+        ${company.phone ? `<p>Tel: ${company.phone}${company.email ? `&nbsp;&nbsp; Email: ${company.email}` : ''}</p>` : ''}
+      </div>
+    </div>
+    <h2>ORÇAMENTO</h2>
+    <div class="grid">
+      <div class="box">
+        <h3>Informações do Cliente</h3>
+        <p><strong>${client?.name || '—'}</strong></p>
+        <p>${client?.address || ''}</p>
+        <p>WhatsApp: ${client?.whatsapp || ''}</p>
+      </div>
+      <div class="box">
+        <h3>Informações do Evento</h3>
+        <p><strong>Data/Horário:</strong> ${b.noTime ? fmtDate(b.eventDate) : `${fmtDate(b.eventDate)} das ${b.startTime} às ${b.endTime}`}</p>
+        <p><strong>Endereço da festa:</strong> ${b.address || '—'}</p>
+      </div>
+    </div>
+    <h3 style="font-size:15px;margin-bottom:10px">Brinquedos</h3>
+    <table>
+      <thead><tr><th>Brinquedo</th><th style="text-align:center">Tamanho</th><th style="text-align:center">Qtd</th><th>Valor Unit.</th><th>Valor Total</th></tr></thead>
+      <tbody>${toysRows}</tbody>
+    </table>
+    <div class="totais">
+      ${Number(b.delivery) > 0 ? `<div class="totais-row"><span>Taxa de entrega:</span><span>${fmtMoney(b.delivery)}</span></div>` : ''}
+      ${Number(b.discount) > 0 ? `<div class="totais-row"><span>Desconto:</span><span>-${fmtMoney(b.discount)}</span></div>` : ''}
+      <div class="totais-row final"><span>Valor Total:</span><span>${fmtMoney(total)}</span></div>
+    </div>
+    ${b.notes ? `<div style="margin-top:20px;background:#F5F2FC;border-radius:10px;padding:14px"><strong>Observações:</strong> ${b.notes}</div>` : ''}
+    <div class="footer">Orçamento gerado em ${fmtDate(b.date)} — Válido por 7 dias</div>
+    <script>window.onload = () => window.print();</script>
+    </body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
   };
 
   return (
@@ -1614,25 +1819,63 @@ function BudgetsPage({ reservations, clients, toys, company, budgets, setBudgets
         {filteredBudgets.length === 0 ? (
           <EmptyState icon={FileText} title="Nenhum orçamento encontrado" subtitle="Crie seu primeiro orçamento clicando em '+ Novo orçamento'." />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {filteredBudgets.map((b) => {
-              const client = getClient(b.clientId);
-              const total = (b.items||[]).reduce((s,i) => s + i.quantity * i.price, 0) + (Number(b.delivery)||0) - (Number(b.discount)||0);
-              return (
-                <div key={b.id} style={{ border: '1px solid #F2EFFB', borderRadius: 14, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#3A3550' }}>{client?.name || '—'}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#A39EC0' }}>{fmtDate(b.eventDate)} · {b.address || '—'}</p>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ fontWeight: 700, fontSize: 16, color: '#5B4FCF' }}>{fmtMoney(total)}</span>
-                    <IconBtn icon={Eye} onClick={() => openPreview(b)} bg="#F5F2FC" color="#5B4FCF" title="Ver orçamento" />
-                    <IconBtn icon={Pencil} onClick={() => { setEditingBudget(b); setModalOpen(true); }} bg="#F5F2FC" color="#5B4FCF" title="Editar" />
-                    <IconBtn icon={Trash2} onClick={() => setBudgets((prev) => prev.filter((x) => x.id !== b.id))} bg="#FFF0F2" color="#D6486A" title="Excluir" />
-                  </div>
-                </div>
-              );
-            })}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: '#A39EC0', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  <th style={{ padding: '0 10px 10px 0' }}>Cliente</th>
+                  <th style={{ padding: '0 10px 10px' }}>Endereço da festa</th>
+                  <th style={{ padding: '0 10px 10px' }}>Data e Horário</th>
+                  <th style={{ padding: '0 10px 10px' }}>Brinquedos</th>
+                  <th style={{ padding: '0 10px 10px' }}>Taxa de Entrega</th>
+                  <th style={{ padding: '0 10px 10px' }}>Desconto</th>
+                  <th style={{ padding: '0 10px 10px', textAlign: 'right' }}>Valor Total</th>
+                  <th style={{ padding: '0 10px 10px', textAlign: 'right' }}>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredBudgets.map((b) => {
+                  const client = getClient(b.clientId);
+                  const total = calcTotal(b);
+                  return (
+                    <tr key={b.id} style={{ borderTop: '1px solid #F4F1FB' }}>
+                      <td style={{ padding: '12px 10px 12px 0' }}>
+                        <p style={{ margin: 0, fontWeight: 700, color: '#3A3550' }}>{client?.name || '—'}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>{client?.whatsapp}</p>
+                      </td>
+                      <td style={{ padding: '12px 10px', color: '#6F6A8A', maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.address || '—'}</td>
+                      <td style={{ padding: '12px 10px', color: '#6F6A8A', whiteSpace: 'nowrap' }}>
+                        {fmtDate(b.eventDate)}{!b.noTime && b.startTime ? ` das ${b.startTime}` : ''}{!b.noTime && b.endTime ? ` às ${b.endTime}` : ''}
+                      </td>
+                      <td style={{ padding: '12px 10px' }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {(b.items||[]).map((i, idx) => {
+                            const toy = getToy(i.toyId);
+                            return <Badge key={idx} bg="#E4FAF1" color="#1B8A4A">{i.quantity} {toy?.name || '—'}</Badge>;
+                          })}
+                        </div>
+                      </td>
+                      <td style={{ padding: '12px 10px', color: '#6F6A8A' }}>{Number(b.delivery) > 0 ? fmtMoney(b.delivery) : '—'}</td>
+                      <td style={{ padding: '12px 10px', color: '#D6486A' }}>{Number(b.discount) > 0 ? `-${fmtMoney(b.discount)}` : '—'}</td>
+                      <td style={{ padding: '12px 10px', textAlign: 'right', fontWeight: 800, color: '#5B4FCF', fontSize: 15 }}>{fmtMoney(total)}</td>
+                      <td style={{ padding: '12px 10px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                          <IconBtn icon={Eye} onClick={() => setViewingBudget(b)} bg="#F5F2FC" color="#5B4FCF" title="Visualizar orçamento" />
+                          <IconBtn icon={Pencil} onClick={() => { setEditingBudget(b); setModalOpen(true); }} bg="#F5F2FC" color="#5B4FCF" title="Editar" />
+                          <IconBtn
+                            title="Enviar para WhatsApp"
+                            icon={() => <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>}
+                            onClick={() => sendWhatsApp(b)}
+                            bg="#E4FAF1" color="#1B8A4A"
+                          />
+                          <IconBtn icon={Trash2} onClick={() => setBudgets((prev) => prev.filter((x) => x.id !== b.id))} bg="#FFF0F2" color="#D6486A" title="Excluir" />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </Card>
@@ -1652,7 +1895,106 @@ function BudgetsPage({ reservations, clients, toys, company, budgets, setBudgets
           onCancel={() => setModalOpen(false)}
         />
       </Modal>
-      <DocumentPreviewModal open={preview} onClose={() => setPreview(false)} title="Orçamento" content={previewContent} />
+
+      {/* Modal de visualização bonita do orçamento */}
+      {viewingBudget && (() => {
+        const b = viewingBudget;
+        const client = getClient(b.clientId);
+        const subtotal = (b.items||[]).reduce((s,i) => s + i.quantity * i.price, 0);
+        const total = subtotal + (Number(b.delivery)||0) - (Number(b.discount)||0);
+        return (
+          <Modal open={!!viewingBudget} onClose={() => setViewingBudget(null)} title="Visualização do Orçamento" width={720}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: 16 }}>
+              <Button variant="secondary" icon={Download} onClick={() => printBudget(b)}>Baixar PDF</Button>
+              <Button variant="ghost" onClick={() => setViewingBudget(null)}>
+                <X size={16} /> Fechar
+              </Button>
+            </div>
+
+            {/* Cabeçalho empresa */}
+            <div style={{ textAlign: 'center', padding: '20px 0 24px', borderBottom: '2px solid #5B4FCF', marginBottom: 24 }}>
+              {company.logo && <img src={company.logo} alt="logo" style={{ height: 60, maxWidth: 180, objectFit: 'contain', marginBottom: 10 }} />}
+              {company.name && <p style={{ fontFamily: 'var(--font-display)', fontWeight: 800, fontSize: 20, color: '#3A3550', margin: '0 0 4px' }}>{company.name}</p>}
+              {company.address && <p style={{ fontSize: 13, color: '#8A84A3', margin: '2px 0' }}>{company.address}</p>}
+              {(company.phone || company.email) && <p style={{ fontSize: 13, color: '#8A84A3', margin: '2px 0' }}>{company.phone}{company.email ? ` · ${company.email}` : ''}</p>}
+              {company.cnpj && <p style={{ fontSize: 13, color: '#8A84A3', margin: '2px 0' }}>CNPJ: {company.cnpj}</p>}
+            </div>
+
+            <p style={{ textAlign: 'center', fontWeight: 800, letterSpacing: 3, color: '#5B4FCF', fontSize: 13, marginBottom: 20 }}>ORÇAMENTO</p>
+
+            {/* Info cliente e evento */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
+              <div style={{ border: '1px solid #ECE8F7', borderRadius: 14, padding: 16 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', textTransform: 'uppercase', margin: '0 0 10px' }}>Informações do Cliente</p>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#3A3550' }}>{client?.name || '—'}</p>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6F6A8A' }}>{client?.address}</p>
+                <p style={{ margin: '4px 0 0', fontSize: 13, color: '#6F6A8A' }}>WhatsApp: {client?.whatsapp}</p>
+              </div>
+              <div style={{ border: '1px solid #ECE8F7', borderRadius: 14, padding: 16 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#A39EC0', textTransform: 'uppercase', margin: '0 0 10px' }}>Informações do Evento</p>
+                <p style={{ margin: 0, fontSize: 13.5, color: '#3A3550' }}><b>Data/Horário:</b> {b.noTime ? fmtDate(b.eventDate) : `${fmtDate(b.eventDate)} das ${b.startTime} às ${b.endTime}`}</p>
+                <p style={{ margin: '6px 0 0', fontSize: 13.5, color: '#3A3550' }}><b>Endereço da festa:</b> {b.address || '—'}</p>
+              </div>
+            </div>
+
+            {/* Tabela de brinquedos */}
+            <p style={{ fontWeight: 700, fontSize: 15, color: '#3A3550', margin: '0 0 12px' }}>Brinquedos</p>
+            <div style={{ border: '1px solid #ECE8F7', borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+                <thead>
+                  <tr style={{ background: '#F5F2FC' }}>
+                    {['Brinquedo', 'Tamanho', 'Quantidade', 'Valor Unit.', 'Valor Total'].map((h,i) => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: i > 1 ? 'right' : 'left', fontSize: 12, fontWeight: 700, color: '#8A84A3', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(b.items||[]).map((item, idx) => {
+                    const toy = getToy(item.toyId);
+                    return (
+                      <tr key={idx} style={{ borderTop: '1px solid #F4F1FB' }}>
+                        <td style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {toy?.image && <img src={toy.image} alt={toy.name} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />}
+                          <span style={{ fontWeight: 700, color: '#3A3550' }}>{toy?.name || '—'}</span>
+                        </td>
+                        <td style={{ padding: '12px 14px', color: '#6F6A8A' }}>{toy?.size || '—'}</td>
+                        <td style={{ padding: '12px 14px', textAlign: 'right', color: '#6F6A8A' }}>{item.quantity}</td>
+                        <td style={{ padding: '12px 14px', textAlign: 'right', color: '#6F6A8A' }}>{fmtMoney(item.price)}</td>
+                        <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 700, color: '#3A3550' }}>{fmtMoney(item.quantity * item.price)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Totais */}
+            <div style={{ marginLeft: 'auto', maxWidth: 300 }}>
+              {Number(b.delivery) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F4F1FB', fontSize: 14, color: '#6F6A8A' }}>
+                  <span>Taxa de Entrega:</span><span>{fmtMoney(b.delivery)}</span>
+                </div>
+              )}
+              {Number(b.discount) > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F4F1FB', fontSize: 14, color: '#D6486A' }}>
+                  <span>Desconto:</span><span>-{fmtMoney(b.discount)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', fontSize: 18, fontWeight: 800, color: '#5B4FCF' }}>
+                <span>Valor Total:</span><span>{fmtMoney(total)}</span>
+              </div>
+            </div>
+
+            {b.notes && (
+              <div style={{ background: '#F5F2FC', borderRadius: 12, padding: 14, marginTop: 16, fontSize: 13.5, color: '#6F6A8A' }}>
+                <b>Observações:</b> {b.notes}
+              </div>
+            )}
+
+            <p style={{ textAlign: 'center', fontSize: 12, color: '#C7BFE8', marginTop: 20 }}>Orçamento gerado em {fmtDate(b.date)}</p>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
