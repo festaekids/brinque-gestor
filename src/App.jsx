@@ -735,12 +735,22 @@ function ClientForm({ initial, onSave, onCancel }) {
 
 function ClientsPage({ clients, setClients, reservations }) {
   const [search, setSearch] = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterYear, setFilterYear] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  const filtered = clients.filter((c) =>
-    [c.name, c.whatsapp, c.address].join(' ').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = clients.filter((c) => {
+    const matchSearch = [c.name, c.whatsapp, c.address].join(' ').toLowerCase().includes(search.toLowerCase());
+    if (!matchSearch) return false;
+    if (filterMonth !== '' && filterYear !== '') {
+      const d = new Date(c.createdAt);
+      if (d.getMonth() !== Number(filterMonth) || d.getFullYear() !== Number(filterYear)) return false;
+    }
+    return true;
+  });
+
+  const years = [...new Set(clients.map((c) => new Date(c.createdAt).getFullYear()))].sort((a, b) => b - a);
 
   const openNew = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (c) => { setEditing(c); setModalOpen(true); };
@@ -779,8 +789,16 @@ function ClientsPage({ clients, setClients, reservations }) {
       </PageHeader>
 
       <Card>
-        <div style={{ marginBottom: 16 }}>
-          <Input placeholder="Buscar por nome, telefone ou endereço..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+          <Input placeholder="Buscar por nome, telefone ou endereço..." value={search} onChange={(e) => setSearch(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
+          <Select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} style={{ width: 130 }}>
+            <option value="">Todos os meses</option>
+            {MONTHS_PT.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          </Select>
+          <Select value={filterYear} onChange={(e) => setFilterYear(e.target.value)} style={{ width: 100 }}>
+            <option value="">Todos os anos</option>
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </Select>
         </div>
 
         {filtered.length === 0 ? (
@@ -1164,6 +1182,12 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
   return (
     <div>
       <PageHeader icon={CalendarDays} title="Gerenciamento de reservas" subtitle="Crie e gerencie as reservas de brinquedos" accent="linear-gradient(135deg,#FFB870,#FF9F4A)">
+        <Select value={month} onChange={(e) => { const d = new Date(refDate); d.setMonth(Number(e.target.value)); setRefDate(d); setSelectedDay(null); }} style={{ width: 130 }}>
+          {MONTHS_PT.map((m, i) => <option key={i} value={i}>{m}</option>)}
+        </Select>
+        <Select value={year} onChange={(e) => { const d = new Date(refDate); d.setFullYear(Number(e.target.value)); setRefDate(d); setSelectedDay(null); }} style={{ width: 90 }}>
+          {[year - 1, year, year + 1, year + 2].map((y) => <option key={y} value={y}>{y}</option>)}
+        </Select>
         <Button icon={Plus} onClick={() => openNew(null)}>Nova reserva</Button>
       </PageHeader>
 
@@ -1255,7 +1279,7 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                     <p style={{ margin: 0 }}>Total: <b>{fmtMoney(r.total)}</b></p>
                     <p style={{ margin: '2px 0 0', color: '#A39EC0' }}>Sinal: {fmtMoney(r.deposit)}</p>
                     <p style={{ margin: '2px 0 0', color: '#A39EC0' }}>Restante: {fmtMoney((Number(r.total) || 0) - (Number(r.deposit) || 0))}</p>
-                    {r.notes && <p style={{ margin: '6px 0 0', fontSize: 12, color: '#C7BFE8', fontStyle: 'italic' }}>{r.notes}</p>}
+                    {r.notes && <p style={{ margin: '6px 0 0', fontSize: 12, color: '#8A84A3', fontStyle: 'italic', background: '#F5F2FC', borderRadius: 8, padding: '4px 8px' }}>{r.notes}</p>}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
                     <button onClick={() => cycleStatus(r)} style={{ border: 'none', cursor: 'pointer', background: 'none', padding: 0 }} title="Clique para mudar o status">
@@ -1263,6 +1287,24 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                     </button>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <IconBtn icon={Pencil} onClick={() => openEdit(r)} bg="#F5F2FC" color="#5B4FCF" title="Editar" />
+                      {client?.whatsapp && (
+                        <IconBtn
+                          title="Enviar confirmação via WhatsApp"
+                          icon={() => (
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                            </svg>
+                          )}
+                          onClick={() => {
+                            const toysList = r.items.map((i) => { const t = getToy(i.toyId); return `${i.quantity} ${t?.name || '—'}`; }).join(', ');
+                            const remaining = (Number(r.total) || 0) - (Number(r.deposit) || 0);
+                            const msg = `Parabéns, ${client?.name}! Sua reserva está confirmada.\n\nData e horário do evento: ${fmtDate(r.startDate)} às ${r.startTime} até ${r.endTime}\nEndereço do cliente: ${client?.address}\nEndereço da festa: ${r.address}\nBrinquedos contratados: ${toysList}\nValor total: ${fmtMoney(r.total)}\nValor sinal: ${fmtMoney(r.deposit)}\nValor restante: ${fmtMoney(remaining)}${r.notes ? `\nObservações: ${r.notes}` : ''}`;
+                            const phone = (client?.whatsapp || '').replace(/\D/g, '');
+                            window.open(`https://api.whatsapp.com/send/?phone=55${phone}&text=${encodeURIComponent(msg)}`);
+                          }}
+                          bg="#E4FAF1" color="#1B8A4A"
+                        />
+                      )}
                       <IconBtn icon={Trash2} onClick={() => handleDelete(r.id)} bg="#FFF0F2" color="#D6486A" title="Excluir" />
                     </div>
                   </div>
@@ -1524,41 +1566,244 @@ function ReservationPicker({ reservations, clients, value, onChange }) {
 }
 
 // ----------------- ORÇAMENTOS -----------------
-function BudgetsPage({ reservations, clients, toys, company }) {
-  const [selectedId, setSelectedId] = useState('');
+function BudgetsPage({ reservations, clients, toys, company, budgets, setBudgets }) {
+  const [filterMonth, setFilterMonth] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
   const [preview, setPreview] = useState(false);
+  const [previewContent, setPreviewContent] = useState('');
+  const [editingBudget, setEditingBudget] = useState(null);
 
-  const reservation = reservations.find((r) => r.id === selectedId);
-  const client = reservation && clients.find((c) => c.id === reservation.clientId);
-  const getToy = (id) => toys.find((t) => t.id === id);
+  const now = new Date();
+  const filteredBudgets = (budgets || []).filter((b) => {
+    if (!filterMonth) return true;
+    const d = new Date(b.date);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === filterMonth;
+  }).sort((a,b) => b.date > a.date ? 1 : -1);
 
-  const content = useMemo(() => {
-    if (!reservation || !client) return '';
-    const itemsLines = reservation.items.map((i) => {
-      const toy = getToy(i.toyId);
-      return `  • ${i.quantity}x ${toy?.name || '—'} (${toy?.size || '—'})`;
+  const getClient = (id) => clients.find((c) => c.id === id);
+
+  const openPreview = (b) => {
+    const client = getClient(b.clientId);
+    const itemsLines = (b.items || []).map((i) => {
+      const toy = toys.find((t) => t.id === i.toyId);
+      return `  • ${i.quantity}x ${toy?.name || '—'} (${toy?.size || '—'}) — ${fmtMoney(i.price)} un. = ${fmtMoney(i.quantity * i.price)}`;
     }).join('\n');
-    return `ORÇAMENTO DE LOCAÇÃO\n${company.name || '[Nome da empresa]'}\n${company.phone || ''}  ${company.email || ''}\n\nCliente: ${client.name}\nEndereço do evento: ${reservation.address}\nData: ${fmtDate(reservation.startDate)}   Horário: ${reservation.startTime} às ${reservation.endTime}\n\nItens orçados:\n${itemsLines}\n\nValor total: ${fmtMoney(reservation.total)}\nSinal sugerido: ${fmtMoney(reservation.deposit)}\nValor restante: ${fmtMoney((Number(reservation.total) || 0) - (Number(reservation.deposit) || 0))}\n\nObservações: ${reservation.notes || '—'}\n\nOrçamento válido por 7 dias.`;
-  }, [reservation, client, company, toys]);
+    const subtotal = (b.items||[]).reduce((s,i) => s + i.quantity * i.price, 0);
+    const total = subtotal + (Number(b.delivery)||0) - (Number(b.discount)||0);
+    const content = `ORÇAMENTO DE LOCAÇÃO\n${company.name || '[Nome da empresa]'}\n${company.phone ? `Tel: ${company.phone}` : ''}  ${company.email || ''}\n${company.address || ''}\n\nCliente: ${client?.name || '—'}\nEndereço do evento: ${b.address || '—'}\nData: ${fmtDate(b.eventDate)}   Horário: ${b.startTime || '—'} às ${b.endTime || '—'}\n\nItens orçados:\n${itemsLines}\n\nSubtotal: ${fmtMoney(subtotal)}\nTaxa de entrega: ${fmtMoney(b.delivery||0)}\nDesconto: -${fmtMoney(b.discount||0)}\nVALOR TOTAL: ${fmtMoney(total)}\n\nObservações: ${b.notes || '—'}\n\nOrçamento válido por 7 dias a partir de ${fmtDate(b.date)}.`;
+    setPreviewContent(content);
+    setPreview(true);
+  };
 
   return (
     <div>
-      <PageHeader icon={FileText} title="Orçamentos" subtitle="Gere orçamentos a partir das reservas cadastradas" accent="linear-gradient(135deg,#C0A4F7,#9B5DE5)" />
+      <PageHeader icon={FileText} title="Orçamentos" subtitle="Crie e gerencie orçamentos de locação" accent="linear-gradient(135deg,#C0A4F7,#9B5DE5)">
+        <Select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} style={{ width: 160 }}>
+          <option value="">Todos os meses</option>
+          {Array.from({length: 12}, (_,i) => {
+            const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+            const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            return <option key={val} value={val}>{MONTHS_PT[d.getMonth()]} {d.getFullYear()}</option>;
+          })}
+        </Select>
+        <Button icon={Plus} onClick={() => { setEditingBudget(null); setModalOpen(true); }}>Novo orçamento</Button>
+      </PageHeader>
+
       <Card>
-        {reservations.length === 0 ? (
-          <EmptyState icon={FileText} title="Nenhuma reserva cadastrada" subtitle="Crie uma reserva para gerar um orçamento." />
+        <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 700, color: '#3A3550', margin: '0 0 16px' }}>Orçamentos realizados</h3>
+        {filteredBudgets.length === 0 ? (
+          <EmptyState icon={FileText} title="Nenhum orçamento encontrado" subtitle="Crie seu primeiro orçamento clicando em '+ Novo orçamento'." />
         ) : (
-          <>
-            <Field label="Selecione a reserva">
-              <ReservationPicker reservations={reservations} clients={clients} value={selectedId} onChange={setSelectedId} />
-            </Field>
-            <div style={{ marginTop: 16 }}>
-              <Button icon={Eye} onClick={() => setPreview(true)} disabled={!selectedId}>Gerar orçamento</Button>
-            </div>
-          </>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {filteredBudgets.map((b) => {
+              const client = getClient(b.clientId);
+              const total = (b.items||[]).reduce((s,i) => s + i.quantity * i.price, 0) + (Number(b.delivery)||0) - (Number(b.discount)||0);
+              return (
+                <div key={b.id} style={{ border: '1px solid #F2EFFB', borderRadius: 14, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                  <div>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: '#3A3550' }}>{client?.name || '—'}</p>
+                    <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#A39EC0' }}>{fmtDate(b.eventDate)} · {b.address || '—'}</p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontWeight: 700, fontSize: 16, color: '#5B4FCF' }}>{fmtMoney(total)}</span>
+                    <IconBtn icon={Eye} onClick={() => openPreview(b)} bg="#F5F2FC" color="#5B4FCF" title="Ver orçamento" />
+                    <IconBtn icon={Pencil} onClick={() => { setEditingBudget(b); setModalOpen(true); }} bg="#F5F2FC" color="#5B4FCF" title="Editar" />
+                    <IconBtn icon={Trash2} onClick={() => setBudgets((prev) => prev.filter((x) => x.id !== b.id))} bg="#FFF0F2" color="#D6486A" title="Excluir" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         )}
       </Card>
-      <DocumentPreviewModal open={preview} onClose={() => setPreview(false)} title="Orçamento" content={content} />
+
+      <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingBudget ? 'Editar orçamento' : 'Novo orçamento'} width={680}>
+        <BudgetForm
+          initial={editingBudget}
+          clients={clients} toys={toys}
+          onSave={(form) => {
+            if (editingBudget) {
+              setBudgets((prev) => prev.map((b) => b.id === editingBudget.id ? { ...b, ...form } : b));
+            } else {
+              setBudgets((prev) => [...prev, { id: uid('b'), date: todayISO(), ...form }]);
+            }
+            setModalOpen(false);
+          }}
+          onCancel={() => setModalOpen(false)}
+        />
+      </Modal>
+      <DocumentPreviewModal open={preview} onClose={() => setPreview(false)} title="Orçamento" content={previewContent} />
+    </div>
+  );
+}
+
+function BudgetForm({ initial, clients, toys, onSave, onCancel }) {
+  const [clientId, setClientId] = useState(initial?.clientId || '');
+  const [address, setAddress] = useState(initial?.address || '');
+  const [eventDate, setEventDate] = useState(initial?.eventDate || todayISO());
+  const [startTime, setStartTime] = useState(initial?.startTime || '10:00');
+  const [endTime, setEndTime] = useState(initial?.endTime || '14:00');
+  const [noTime, setNoTime] = useState(initial?.noTime || false);
+  const [items, setItems] = useState(initial?.items || toys.map((t) => ({ toyId: t.id, quantity: 1, price: Number(t.price)||0, selected: false })));
+  const [delivery, setDelivery] = useState(initial?.delivery || 0);
+  const [discount, setDiscount] = useState(initial?.discount || 0);
+  const [notes, setNotes] = useState(initial?.notes || '');
+
+  const selectedClient = clients.find((c) => c.id === clientId);
+  const [clientSearch, setClientSearch] = useState('');
+  const [showClientList, setShowClientList] = useState(false);
+  const clientResults = clients.filter((c) => [c.name, c.whatsapp].join(' ').toLowerCase().includes(clientSearch.toLowerCase()));
+
+  const selectedItems = items.filter((i) => i.selected);
+  const subtotal = selectedItems.reduce((s, i) => s + i.quantity * i.price, 0);
+  const total = subtotal + (Number(delivery)||0) - (Number(discount)||0);
+
+  const toggleItem = (toyId) => setItems((prev) => prev.map((i) => i.toyId === toyId ? { ...i, selected: !i.selected } : i));
+  const updateItem = (toyId, field, value) => setItems((prev) => prev.map((i) => i.toyId === toyId ? { ...i, [field]: value } : i));
+
+  const canSave = clientId && eventDate && selectedItems.length > 0;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Field label="Cliente">
+        {selectedClient ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', borderRadius: 12, background: '#F5F2FC', border: '1.5px solid #ECE8F7' }}>
+            <div>
+              <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: '#3A3550' }}>{selectedClient.name}</p>
+              <p style={{ margin: 0, fontSize: 12.5, color: '#A39EC0' }}>{selectedClient.whatsapp}</p>
+            </div>
+            <Button variant="ghost" style={{ padding: '6px 12px', fontSize: 13 }} onClick={() => { setClientId(''); setClientSearch(''); }}>Trocar</Button>
+          </div>
+        ) : (
+          <div style={{ position: 'relative' }}>
+            <Input placeholder="Buscar cliente por nome, telefone ou endereço..." value={clientSearch} onFocus={() => setShowClientList(true)}
+              onChange={(e) => { setClientSearch(e.target.value); setShowClientList(true); }} />
+            {showClientList && clientSearch && (
+              <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#fff', border: '1px solid #ECE8F7', borderRadius: 12, boxShadow: '0 10px 24px -10px rgba(60,40,110,0.2)', zIndex: 10, maxHeight: 180, overflowY: 'auto' }}>
+                {clientResults.map((c) => (
+                  <div key={c.id} onClick={() => { setClientId(c.id); setAddress(address || c.address); setClientSearch(''); setShowClientList(false); }}
+                    style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #F4F1FB' }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#FAF8FE'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                    <p style={{ margin: 0, fontSize: 13.5, fontWeight: 700, color: '#3A3550' }}>{c.name}</p>
+                    <p style={{ margin: 0, fontSize: 12, color: '#A39EC0' }}>{c.whatsapp}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Field>
+
+      <Field label="Endereço do evento">
+        <Input placeholder="Endereço completo" value={address} onChange={(e) => setAddress(e.target.value)} />
+      </Field>
+
+      <div>
+        <p style={{ fontSize: 14, fontWeight: 700, color: '#3A3550', margin: '0 0 10px' }}>Data e Horário do Evento</p>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, cursor: 'pointer', fontSize: 13.5, color: '#6F6A8A' }}>
+          <input type="checkbox" checked={noTime} onChange={(e) => setNoTime(e.target.checked)} />
+          Sem horário específico
+          <span style={{ fontSize: 12, color: '#A39EC0' }}>Marque esta opção se o evento não tem horário definido</span>
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+          <Field label="Data de Início"><Input type="date" value={eventDate} onChange={(e) => setEventDate(e.target.value)} /></Field>
+          {!noTime && <Field label="Hora de Início"><Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} /></Field>}
+          {!noTime && <Field label="Hora de Término"><Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} /></Field>}
+        </div>
+      </div>
+
+      <div>
+        <p style={{ fontSize: 14, fontWeight: 700, color: '#3A3550', margin: '0 0 10px' }}>Brinquedos e Valores</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {toys.map((toy) => {
+            const item = items.find((i) => i.toyId === toy.id);
+            if (!item) return null;
+            return (
+              <div key={toy.id} onClick={() => toggleItem(toy.id)} style={{
+                border: `1.5px solid ${item.selected ? '#5B4FCF' : '#ECE8F7'}`,
+                background: item.selected ? '#F2EFFC' : '#fff',
+                borderRadius: 14, padding: 14, cursor: 'pointer',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: item.selected ? 12 : 0 }}>
+                  <input type="checkbox" checked={item.selected} readOnly style={{ pointerEvents: 'none' }} />
+                  <span style={{ fontWeight: 700, fontSize: 14.5, color: '#3A3550' }}>{toy.name}</span>
+                  {toy.size && <span style={{ fontSize: 12, color: '#A39EC0' }}>{toy.size}</span>}
+                </div>
+                {item.selected && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }} onClick={(e) => e.stopPropagation()}>
+                    <Field label="Qtd:">
+                      <Input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(toy.id, 'quantity', Number(e.target.value))} style={{ padding: '8px 10px' }} />
+                    </Field>
+                    <Field label="Valor unit.:">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ fontSize: 13, color: '#8A84A3' }}>R$</span>
+                        <Input type="number" min={0} value={item.price} onChange={(e) => updateItem(toy.id, 'price', Number(e.target.value))} style={{ padding: '8px 10px' }} />
+                      </div>
+                    </Field>
+                    <Field label="Total:">
+                      <div style={{ padding: '10px 12px', borderRadius: 12, background: '#E4FAF1', fontWeight: 700, color: '#1B8A4A', fontSize: 13.5 }}>
+                        {fmtMoney(item.quantity * item.price)}
+                      </div>
+                    </Field>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+        <Field label="Taxa de Entrega">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 13, color: '#8A84A3' }}>R$</span>
+            <Input type="number" min={0} value={delivery} onChange={(e) => setDelivery(e.target.value)} style={{ padding: '8px 10px' }} />
+          </div>
+        </Field>
+        <Field label="Desconto">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <span style={{ fontSize: 13, color: '#8A84A3' }}>R$</span>
+            <Input type="number" min={0} value={discount} onChange={(e) => setDiscount(e.target.value)} style={{ padding: '8px 10px' }} />
+          </div>
+        </Field>
+        <Field label="Valor Total">
+          <div style={{ padding: '10px 14px', borderRadius: 12, background: '#F2EFFC', fontFamily: 'var(--font-display)', fontWeight: 700, color: '#5B4FCF', fontSize: 16 }}>
+            {fmtMoney(total)}
+          </div>
+        </Field>
+      </div>
+
+      <Field label="Observações">
+        <Textarea placeholder="Adicione observações relevantes sobre o orçamento..." value={notes} onChange={(e) => setNotes(e.target.value)} />
+      </Field>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+        <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button onClick={() => onSave({ clientId, address, eventDate, startTime: noTime ? '' : startTime, endTime: noTime ? '' : endTime, noTime, items: items.filter((i) => i.selected), delivery: Number(delivery)||0, discount: Number(discount)||0, notes })} disabled={!canSave}>
+          Salvar Orçamento
+        </Button>
+      </div>
     </div>
   );
 }
@@ -1689,9 +1934,20 @@ function StatsPage({ reservations, finance, toys }) {
     });
   }, [reservations, last12]);
 
-  const totalEvents = reservations.length;
-  const totalRevenue = finance.filter((f) => f.type === 'receita').reduce((s, f) => s + (Number(f.amount) || 0), 0);
-  const toysRented = reservations.reduce((s, r) => s + r.items.reduce((x, i) => x + i.quantity, 0), 0);
+  const eventsVsToys = useMemo(() => {
+    return last12.map(({ year, month, label }) => {
+      const monthReservations = reservations.filter((r) => {
+        const d = new Date(r.startDate);
+        return d.getFullYear() === year && d.getMonth() === month;
+      });
+      const eventos = monthReservations.length;
+      const brinquedos = monthReservations.reduce((s, r) => s + r.items.reduce((x, i) => x + i.quantity, 0), 0);
+      return { name: label, Eventos: eventos, 'Brinquedos alugados': brinquedos };
+    });
+  }, [reservations, last12]);
+
+  const ticketMedioEvento = totalEvents > 0 ? totalRevenue / totalEvents : 0;
+  const ticketMedioBrinquedo = toysRented > 0 ? totalRevenue / toysRented : 0;
 
   // Brinquedos mais populares
   const toyCounts = {};
@@ -1720,6 +1976,8 @@ function StatsPage({ reservations, finance, toys }) {
         <StatCard icon={CalendarDays} label="Total de eventos" value={totalEvents} color="#5B4FCF" bg="#EFEDFC" />
         <StatCard icon={Wallet} label="Receita total" value={fmtMoney(totalRevenue)} color="#1B8A4A" bg="#E4FAF1" />
         <StatCard icon={ToyBrick} label="Brinquedos alugados" value={toysRented} color="#FF6B9D" bg="#FFEBF1" />
+        <StatCard icon={TrendingUp} label="Ticket médio por evento" value={fmtMoney(ticketMedioEvento)} color="#FF9F4A" bg="#FFF3E8" />
+        <StatCard icon={TrendingUp} label="Ticket médio por brinquedo" value={fmtMoney(ticketMedioBrinquedo)} color="#34C9D8" bg="#E4F9FB" />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 16, marginBottom: 16 }}>
@@ -1739,6 +1997,25 @@ function StatsPage({ reservations, finance, toys }) {
             </ResponsiveContainer>
           </div>
         </Card>
+        <Card>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#3A3550', margin: '0 0 16px' }}>Eventos vs Brinquedos alugados</h3>
+          <div style={{ height: 240 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={eventsVsToys}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F4F1FB" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#A39EC0' }} />
+                <YAxis tick={{ fontSize: 11, fill: '#A39EC0' }} allowDecimals={false} />
+                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #ECE8F7', fontSize: 12.5 }} />
+                <Legend wrapperStyle={{ fontSize: 12.5 }} />
+                <Bar dataKey="Eventos" fill="#5B4FCF" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="Brinquedos alugados" fill="#FF6B9D" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
         <Card>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#3A3550', margin: '0 0 16px' }}>Eventos por mês</h3>
           <div style={{ height: 240 }}>
@@ -1894,6 +2171,7 @@ export default function App() {
   const [reservations, setReservationsState] = useState([]);
   const [finance, setFinanceState] = useState([]);
   const [company, setCompanyState] = useState(emptyCompany);
+  const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [syncing, setSyncing] = useState(false);
@@ -2082,7 +2360,7 @@ export default function App() {
       page = <AvailabilityPage toys={toys} reservations={reservations} />;
       break;
     case 'budgets':
-      page = <BudgetsPage reservations={reservations} clients={clients} toys={toys} company={company} />;
+      page = <BudgetsPage reservations={reservations} clients={clients} toys={toys} company={company} budgets={budgets} setBudgets={setBudgets} />;
       break;
     case 'finance':
       page = <FinancePage finance={finance} setFinance={wrappedSetFinance} />;
