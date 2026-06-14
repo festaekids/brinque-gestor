@@ -1260,7 +1260,7 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                 <tr style={{ textAlign: 'left', color: '#A39EC0', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid #F4F1FB' }}>
                   <th style={{ padding: '0 10px 12px 0' }}>Cliente</th>
                   <th style={{ padding: '0 10px 12px' }}>Endereço da festa</th>
-                  <th style={{ padding: '0 10px 12px' }}>Data e Horário</th>
+                  <th style={{ padding: '0 10px 12px' }}>Data</th>
                   <th style={{ padding: '0 10px 12px' }}>Brinquedo</th>
                   <th style={{ padding: '0 10px 12px' }}>Valores</th>
                   <th style={{ padding: '0 10px 12px' }}>Status</th>
@@ -1282,12 +1282,23 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>{client?.address}</p>
                         <p style={{ margin: '1px 0 0', fontSize: 12, color: '#B6AFD6' }}>{client?.whatsapp}</p>
                       </td>
-                      <td style={{ padding: '14px 10px', color: '#6F6A8A', minWidth: 130 }}>{r.address || '—'}</td>
-                      <td style={{ padding: '14px 10px', color: '#6F6A8A', whiteSpace: 'nowrap', minWidth: 160 }}>
-                        {fmtDate(r.startDate)} às {r.startTime}
-                        {r.endDate && r.endDate !== r.startDate
-                          ? <>{' '}a {fmtDate(r.endDate)} às {r.endTime}</>
-                          : <>{' '}a {r.endTime}</>
+                      <td style={{ padding: '14px 10px', minWidth: 130 }}>
+                        {r.address ? (
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.address)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#5B4FCF', fontWeight: 600, fontSize: 13.5, textDecoration: 'underline', cursor: 'pointer' }}
+                          >
+                            📍 {r.address}
+                          </a>
+                        ) : <span style={{ color: '#D8D4EA' }}>—</span>}
+                      </td>
+                      <td style={{ padding: '14px 10px', color: '#6F6A8A', whiteSpace: 'nowrap', minWidth: 130 }}>
+                        {fmtDate(r.startDate)}
+                        {r.endDate && r.endDate !== r.startDate && r.endDate !== r.startDate
+                          ? <><br/>{fmtDate(r.endDate)}</>
+                          : null
                         }
                       </td>
                       <td style={{ padding: '14px 10px', minWidth: 140 }}>
