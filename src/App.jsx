@@ -1252,67 +1252,85 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
         </div>
 
         {dayReservations.length === 0 ? (
-          <EmptyState icon={CalendarDays} title="Nenhuma reserva encontrada" subtitle="Clique em “Nova reserva” para criar uma." />
+          <EmptyState icon={CalendarDays} title="Nenhuma reserva encontrada" subtitle='Clique em "Nova reserva" para criar uma.' />
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {dayReservations.map((r) => {
-              const client = getClient(r.clientId);
-              const st = STATUS_STYLES[r.status] || STATUS_STYLES.pendente;
-              return (
-                <div key={r.id} style={{ border: '1px solid #F2EFFB', borderRadius: 16, padding: 16, display: 'grid', gridTemplateColumns: '1.3fr 1fr 1fr auto', gap: 14, alignItems: 'start' }}>
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 800, fontSize: 14.5, color: '#3A3550' }}>{client?.name || '—'}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#A39EC0' }}>{r.address}</p>
-                    <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#A39EC0' }}>{client?.whatsapp}</p>
-                  </div>
-                  <div>
-                    <p style={{ margin: 0, fontSize: 13, color: '#6F6A8A', fontWeight: 700 }}>
-                      {fmtDate(r.startDate)} {r.startTime} – {r.endDate && r.endDate !== r.startDate ? `${fmtDate(r.endDate)} ` : ''}{r.endTime}
-                    </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-                      {r.items.map((i, idx) => {
-                        const toy = getToy(i.toyId);
-                        return <Badge key={idx} bg="#E4FAF1" color="#1B8A4A">{i.quantity}× {toy?.name || '—'}</Badge>;
-                      })}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 13, color: '#3A3550' }}>
-                    <p style={{ margin: 0 }}>Total: <b>{fmtMoney(r.total)}</b></p>
-                    <p style={{ margin: '2px 0 0', color: '#A39EC0' }}>Sinal: {fmtMoney(r.deposit)}</p>
-                    <p style={{ margin: '2px 0 0', color: '#A39EC0' }}>Restante: {fmtMoney((Number(r.total) || 0) - (Number(r.deposit) || 0))}</p>
-                    {r.notes && <p style={{ margin: '6px 0 0', fontSize: 12, color: '#8A84A3', fontStyle: 'italic', background: '#F5F2FC', borderRadius: 8, padding: '4px 8px' }}>{r.notes}</p>}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                    <button onClick={() => cycleStatus(r)} style={{ border: 'none', cursor: 'pointer', background: 'none', padding: 0 }} title="Clique para mudar o status">
-                      <Badge bg={st.bg} color={st.text}>{st.label}</Badge>
-                    </button>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <IconBtn icon={Eye} onClick={() => setViewingReservation(r)} bg="#F5F2FC" color="#5B4FCF" title="Ver detalhes" />
-                      <IconBtn icon={Pencil} onClick={() => openEdit(r)} bg="#F5F2FC" color="#5B4FCF" title="Editar" />
-                      {client?.whatsapp && (
-                        <IconBtn
-                          title="Enviar confirmação via WhatsApp"
-                          icon={() => (
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                            </svg>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: '#A39EC0', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid #F4F1FB' }}>
+                  <th style={{ padding: '0 10px 12px 0' }}>Cliente</th>
+                  <th style={{ padding: '0 10px 12px' }}>Endereço da festa</th>
+                  <th style={{ padding: '0 10px 12px' }}>Data e Horário</th>
+                  <th style={{ padding: '0 10px 12px' }}>Brinquedo</th>
+                  <th style={{ padding: '0 10px 12px' }}>Valores</th>
+                  <th style={{ padding: '0 10px 12px' }}>Status</th>
+                  <th style={{ padding: '0 10px 12px' }}>Observações</th>
+                  <th style={{ padding: '0 10px 12px', textAlign: 'right' }}>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dayReservations.map((r) => {
+                  const client = getClient(r.clientId);
+                  const st = STATUS_STYLES[r.status] || STATUS_STYLES.pendente;
+                  const remaining = (Number(r.total) || 0) - (Number(r.deposit) || 0);
+                  const toysList = r.items.map((i) => { const t = getToy(i.toyId); return `${i.quantity} ${t?.name || '—'}`; }).join(', ');
+                  const wMsg = `Parabéns, ${client?.name}! Sua reserva está confirmada.\n\nData e horário do evento: ${fmtDate(r.startDate)} às ${r.startTime} até ${r.endTime}\nEndereço do cliente: ${client?.address}\nEndereço da festa: ${r.address}\nBrinquedos contratados: ${toysList}\nValor total: ${fmtMoney(r.total)}\nValor sinal: ${fmtMoney(r.deposit)}\nValor restante: ${fmtMoney(remaining)}${r.notes ? `\nObservações: ${r.notes}` : ''}`;
+                  return (
+                    <tr key={r.id} style={{ borderBottom: '1px solid #F4F1FB', verticalAlign: 'top' }}>
+                      <td style={{ padding: '14px 10px 14px 0', minWidth: 140 }}>
+                        <p style={{ margin: 0, fontWeight: 800, color: '#3A3550', fontSize: 14 }}>{client?.name || '—'}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>{client?.address}</p>
+                        <p style={{ margin: '1px 0 0', fontSize: 12, color: '#B6AFD6' }}>{client?.whatsapp}</p>
+                      </td>
+                      <td style={{ padding: '14px 10px', color: '#6F6A8A', minWidth: 130 }}>{r.address || '—'}</td>
+                      <td style={{ padding: '14px 10px', color: '#6F6A8A', whiteSpace: 'nowrap', minWidth: 160 }}>
+                        {fmtDate(r.startDate)} às {r.startTime}
+                        {r.endDate && r.endDate !== r.startDate
+                          ? <>{' '}a {fmtDate(r.endDate)} às {r.endTime}</>
+                          : <>{' '}a {r.endTime}</>
+                        }
+                      </td>
+                      <td style={{ padding: '14px 10px', minWidth: 140 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                          {r.items.map((i, idx) => {
+                            const toy = getToy(i.toyId);
+                            return <Badge key={idx} bg="#E4FAF1" color="#1B8A4A">{i.quantity} {toy?.name || '—'}</Badge>;
+                          })}
+                        </div>
+                      </td>
+                      <td style={{ padding: '14px 10px', minWidth: 150 }}>
+                        <p style={{ margin: 0, fontSize: 13, color: '#3A3550' }}>Total: <b>{fmtMoney(r.total)}</b></p>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>Sinal: {fmtMoney(r.deposit)}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>Restante: {fmtMoney(remaining)}</p>
+                      </td>
+                      <td style={{ padding: '14px 10px', minWidth: 110 }}>
+                        <button onClick={() => cycleStatus(r)} style={{ border: 'none', cursor: 'pointer', background: 'none', padding: 0 }} title="Clique para avançar o status">
+                          <Badge bg={st.bg} color={st.text}>{st.label}</Badge>
+                        </button>
+                      </td>
+                      <td style={{ padding: '14px 10px', color: '#8A84A3', fontStyle: 'italic', fontSize: 12.5, minWidth: 120 }}>
+                        {r.notes || <span style={{ color: '#D8D4EA' }}>—</span>}
+                      </td>
+                      <td style={{ padding: '14px 10px', textAlign: 'right', minWidth: 130 }}>
+                        <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                          <IconBtn icon={Eye} onClick={() => setViewingReservation(r)} bg="#F5F2FC" color="#5B4FCF" title="Ver detalhes" />
+                          <IconBtn icon={Pencil} onClick={() => openEdit(r)} bg="#F5F2FC" color="#5B4FCF" title="Editar" />
+                          {client?.whatsapp && (
+                            <IconBtn
+                              title="Enviar confirmação via WhatsApp"
+                              icon={() => <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>}
+                              onClick={() => { const phone = (client.whatsapp).replace(/\D/g,''); window.open(`https://api.whatsapp.com/send/?phone=55${phone}&text=${encodeURIComponent(wMsg)}`); }}
+                              bg="#E4FAF1" color="#1B8A4A"
+                            />
                           )}
-                          onClick={() => {
-                            const toysList = r.items.map((i) => { const t = getToy(i.toyId); return `${i.quantity} ${t?.name || '—'}`; }).join(', ');
-                            const remaining = (Number(r.total) || 0) - (Number(r.deposit) || 0);
-                            const msg = `Parabéns, ${client?.name}! Sua reserva está confirmada.\n\nData e horário do evento: ${fmtDate(r.startDate)} às ${r.startTime} até ${r.endTime}\nEndereço do cliente: ${client?.address}\nEndereço da festa: ${r.address}\nBrinquedos contratados: ${toysList}\nValor total: ${fmtMoney(r.total)}\nValor sinal: ${fmtMoney(r.deposit)}\nValor restante: ${fmtMoney(remaining)}${r.notes ? `\nObservações: ${r.notes}` : ''}`;
-                            const phone = (client?.whatsapp || '').replace(/\D/g, '');
-                            window.open(`https://api.whatsapp.com/send/?phone=55${phone}&text=${encodeURIComponent(msg)}`);
-                          }}
-                          bg="#E4FAF1" color="#1B8A4A"
-                        />
-                      )}
-                      <IconBtn icon={Trash2} onClick={() => handleDelete(r.id)} bg="#FFF0F2" color="#D6486A" title="Excluir" />
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                          <IconBtn icon={Trash2} onClick={() => handleDelete(r.id)} bg="#FFF0F2" color="#D6486A" title="Excluir" />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </Card>
