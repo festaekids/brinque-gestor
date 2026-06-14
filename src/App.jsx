@@ -1934,6 +1934,10 @@ function StatsPage({ reservations, finance, toys }) {
     });
   }, [reservations, last12]);
 
+  const totalEvents = reservations.length;
+  const totalRevenue = finance.filter((f) => f.type === 'receita').reduce((s, f) => s + (Number(f.amount) || 0), 0);
+  const toysRented = reservations.reduce((s, r) => s + r.items.reduce((x, i) => x + i.quantity, 0), 0);
+
   const eventsVsToys = useMemo(() => {
     return last12.map(({ year, month, label }) => {
       const monthReservations = reservations.filter((r) => {
