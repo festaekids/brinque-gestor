@@ -2305,17 +2305,27 @@ function StatsPage({ reservations, finance, toys }) {
 
   const revenueVsCost = useMemo(() => {
     return last12.map(({ year, month, label }) => {
-      let receita = 0, custo = 0;
+      // Receita: soma do valor das reservas daquele mês (exceto canceladas) — reflete o valor real do negócio
+      let receita = 0;
+      for (const r of reservations) {
+        if (r.status === 'cancelado') continue;
+        const d = new Date(r.startDate);
+        if (d.getFullYear() === year && d.getMonth() === month) {
+          receita += Number(r.total) || 0;
+        }
+      }
+      // Custo: soma das despesas lançadas no financeiro naquele mês
+      let custo = 0;
       for (const f of finance) {
+        if (f.type !== 'despesa') continue;
         const d = new Date(f.date);
         if (d.getFullYear() === year && d.getMonth() === month) {
-          if (f.type === 'receita') receita += Number(f.amount) || 0;
-          else custo += Number(f.amount) || 0;
+          custo += Number(f.amount) || 0;
         }
       }
       return { name: label, Receita: receita, Custo: custo };
     });
-  }, [finance, last12]);
+  }, [reservations, finance, last12]);
 
   const eventsPerMonth = useMemo(() => {
     return last12.map(({ year, month, label }) => {
@@ -2328,7 +2338,8 @@ function StatsPage({ reservations, finance, toys }) {
   }, [reservations, last12]);
 
   const totalEvents = reservations.length;
-  const totalRevenue = finance.filter((f) => f.type === 'receita').reduce((s, f) => s + (Number(f.amount) || 0), 0);
+  // Receita total: soma do valor de todas as reservas não canceladas (reflete o faturamento real, não apenas o que foi lançado manualmente no financeiro)
+  const totalRevenue = reservations.filter((r) => r.status !== 'cancelado').reduce((s, r) => s + (Number(r.total) || 0), 0);
   const toysRented = reservations.reduce((s, r) => s + r.items.reduce((x, i) => x + i.quantity, 0), 0);
 
   const eventsVsToys = useMemo(() => {
