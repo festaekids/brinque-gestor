@@ -2340,7 +2340,7 @@ function StatsPage({ reservations, finance, toys }) {
   const totalEvents = reservations.length;
   // Receita total: soma do valor de todas as reservas não canceladas (reflete o faturamento real, não apenas o que foi lançado manualmente no financeiro)
   const totalRevenue = reservations.filter((r) => r.status !== 'cancelado').reduce((s, r) => s + (Number(r.total) || 0), 0);
-  const toysRented = reservations.reduce((s, r) => s + r.items.reduce((x, i) => x + i.quantity, 0), 0);
+  const toysRented = reservations.filter((r) => r.status !== 'cancelado').reduce((s, r) => s + r.items.reduce((x, i) => x + (i.quantity || 1), 0), 0);
 
   const eventsVsToys = useMemo(() => {
     return last12.map(({ year, month, label }) => {
@@ -2357,16 +2357,26 @@ function StatsPage({ reservations, finance, toys }) {
   const ticketMedioEvento = totalEvents > 0 ? totalRevenue / totalEvents : 0;
   const ticketMedioBrinquedo = toysRented > 0 ? totalRevenue / toysRented : 0;
 
-  // Brinquedos mais populares
+  // Brinquedos mais populares — conta quantidade total alugada por brinquedo
   const toyCounts = {};
+  const toyNames = {}; // guarda o nome mesmo se o brinquedo foi removido do cadastro
   for (const r of reservations) {
+    if (r.status === 'cancelado') continue;
     for (const item of r.items) {
-      toyCounts[item.toyId] = (toyCounts[item.toyId] || 0) + 1;
+      toyCounts[item.toyId] = (toyCounts[item.toyId] || 0) + (item.quantity || 1);
+      // tenta puxar nome do cadastro atual, senão mantém o que já tinha
+      const toy = toys.find((t) => t.id === item.toyId);
+      if (toy) toyNames[item.toyId] = toy.name;
+      else if (!toyNames[item.toyId]) toyNames[item.toyId] = `Brinquedo #${item.toyId}`;
     }
   }
-  const maxCount = Math.max(1, ...Object.values(toyCounts));
-  const popularToys = toys.map((t) => ({ ...t, count: toyCounts[t.id] || 0 }))
-    .sort((a, b) => b.count - a.count).slice(0, 5);
+  const maxCount = Math.max(1, ...Object.values(toyCounts).length ? Object.values(toyCounts) : [1]);
+  // inclui todos os brinquedos que já foram alugados (mesmo os não cadastrados) + os do catálogo com count 0
+  const allToyIds = new Set([...toys.map((t) => t.id), ...Object.keys(toyCounts)]);
+  const popularToys = Array.from(allToyIds).map((id) => {
+    const toy = toys.find((t) => t.id === id);
+    return { id, name: toy?.name || toyNames[id] || id, count: toyCounts[id] || 0 };
+  }).filter((t) => t.count > 0).sort((a, b) => b.count - a.count).slice(0, 5);
 
   // Eventos por dia da semana
   const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
