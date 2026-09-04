@@ -2369,19 +2369,6 @@ function StatsPage({ reservations, finance, toys }) {
     });
   }, [reservations, activeMonths]);
 
-  const eventsVsToys = useMemo(() => {
-    return activeMonths.map(({ year, month, label }) => {
-      const monthReservations = reservations.filter((r) => {
-        if (r.status === 'cancelado') return false;
-        const d = new Date(r.startDate);
-        return d.getFullYear() === year && d.getMonth() === month;
-      });
-      const eventos = monthReservations.length;
-      const brinquedos = monthReservations.reduce((s, r) => s + r.items.reduce((x, i) => x + (i.quantity || 1), 0), 0);
-      return { name: label, Eventos: eventos, 'Brinquedos alugados': brinquedos };
-    });
-  }, [reservations, activeMonths]);
-
   // Cards de resumo — agora usam a mesma base (periodReservations) dos gráficos acima,
   // então nunca mais divergem entre si.
   const totalEvents = periodReservations.length;
@@ -2396,10 +2383,15 @@ function StatsPage({ reservations, finance, toys }) {
   const toyNames = {};
   for (const r of periodReservations) {
     for (const item of r.items) {
-      if (!toyStats[item.toyId]) toyStats[item.toyId] = { units: 0, times: 0 };
-      toyStats[item.toyId].units += item.quantity || 1;
-      toyStats[item.toyId].times += 1;
+      if (!toyStats[item.toyId]) toyStats[item.toyId] = { units: 0, times: 0, revenue: 0 };
       const toy = toys.find((t) => t.id === item.toyId);
+      const qty = item.quantity || 1;
+      toyStats[item.toyId].units += qty;
+      toyStats[item.toyId].times += 1;
+      // Receita estimada = valor de diária cadastrado atualmente no brinquedo × quantidade.
+      // Se o valor da reserva foi ajustado manualmente (desconto/negociação), este número
+      // é uma estimativa pelo preço de tabela, não necessariamente o valor exato recebido.
+      toyStats[item.toyId].revenue += (Number(toy?.price) || 0) * qty;
       if (toy) toyNames[item.toyId] = toy.name;
       else if (!toyNames[item.toyId]) toyNames[item.toyId] = `Brinquedo #${item.toyId}`;
     }
@@ -2408,9 +2400,16 @@ function StatsPage({ reservations, finance, toys }) {
   const allToyIds = new Set([...toys.map((t) => t.id), ...Object.keys(toyStats)]);
   const popularToys = Array.from(allToyIds).map((id) => {
     const toy = toys.find((t) => t.id === id);
-    const stats = toyStats[id] || { units: 0, times: 0 };
+    const stats = toyStats[id] || { units: 0, times: 0, revenue: 0 };
     return { id, name: toy?.name || toyNames[id] || id, units: stats.units, times: stats.times };
   }).filter((t) => t.units > 0).sort((a, b) => b.units - a.units);
+
+  // Receita por brinquedo no período selecionado (para o gráfico "Receita por brinquedo")
+  const toyRevenueData = Array.from(allToyIds).map((id) => {
+    const toy = toys.find((t) => t.id === id);
+    const stats = toyStats[id] || { units: 0, times: 0, revenue: 0 };
+    return { name: toy?.name || toyNames[id] || id, Receita: stats.revenue };
+  }).filter((t) => t.Receita > 0).sort((a, b) => b.Receita - a.Receita);
 
   // Eventos por dia da semana — dentro do período ativo, sem cancelados
   const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
@@ -2442,7 +2441,7 @@ function StatsPage({ reservations, finance, toys }) {
         <StatCard icon={TrendingUp} label="Ticket médio por brinquedo" value={fmtMoney(ticketMedioBrinquedo)} color="#34C9D8" bg="#E4F9FB" />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 16, marginBottom: 16 }}>
+      <div style={{ marginBottom: 16 }}>
         <Card>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#3A3550', margin: '0 0 16px' }}>Receita vs custo por mês</h3>
           <div style={{ height: 240 }}>
@@ -2459,21 +2458,31 @@ function StatsPage({ reservations, finance, toys }) {
             </ResponsiveContainer>
           </div>
         </Card>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
         <Card>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#3A3550', margin: '0 0 16px' }}>Eventos vs Brinquedos alugados</h3>
-          <div style={{ height: 240 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={eventsVsToys}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F4F1FB" />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#A39EC0' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#A39EC0' }} allowDecimals={false} />
-                <Tooltip contentStyle={{ borderRadius: 12, border: '1px solid #ECE8F7', fontSize: 12.5 }} />
-                <Legend wrapperStyle={{ fontSize: 12.5 }} />
-                <Bar dataKey="Eventos" fill="#5B4FCF" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="Brinquedos alugados" fill="#FF6B9D" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#3A3550', margin: '0 0 4px' }}>
+            Receita por brinquedo {isSingleMonth ? `em ${MONTHS_PT[activeMonths[0].month]} de ${activeMonths[0].year}` : 'nos últimos 12 meses'}
+          </h3>
+          <p style={{ fontSize: 11.5, color: '#C7BFE8', margin: '0 0 14px' }}>
+            Estimado pelo valor de diária cadastrado em cada brinquedo × quantidade alugada
+          </p>
+          {toyRevenueData.length === 0 ? (
+            <p style={{ fontSize: 13.5, color: '#A39EC0' }}>Ainda não há dados suficientes para este período.</p>
+          ) : (
+            <div style={{ height: Math.min(480, Math.max(240, toyRevenueData.length * 34 + 20)), overflowY: toyRevenueData.length > 13 ? 'auto' : 'visible' }}>
+              <ResponsiveContainer width="100%" height={Math.max(240, toyRevenueData.length * 34 + 20)}>
+                <BarChart data={toyRevenueData} layout="vertical" margin={{ left: 8, right: 20, top: 4, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F4F1FB" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: '#A39EC0' }} tickFormatter={(v) => `R$${v}`} />
+                  <YAxis type="category" dataKey="name" width={140} tick={{ fontSize: 11.5, fill: '#3A3550' }} />
+                  <Tooltip formatter={(v) => fmtMoney(v)} contentStyle={{ borderRadius: 12, border: '1px solid #ECE8F7', fontSize: 12.5 }} />
+                  <Bar dataKey="Receita" fill="#FF6B9D" radius={[0, 6, 6, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </Card>
       </div>
 
