@@ -35,6 +35,18 @@ const fmtDate = (iso) => {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+// Interpreta uma data 'YYYY-MM-DD' como data LOCAL. O JavaScript, por padrão,
+// trata strings só-de-data (sem horário) como UTC — em fusos negativos como o
+// do Brasil (UTC-3), isso "volta" a data em quase 3 horas, o que troca o dia da
+// semana de TODA data e, no dia 1º de cada mês, chega a trocar até o mês/ano.
+// Use esta função (em vez de `new Date(isoString)`) sempre que for extrair
+// dia/mês/ano/dia-da-semana de uma data armazenada como 'YYYY-MM-DD'.
+function parseLocalDate(iso) {
+  if (!iso) return new Date(NaN);
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
 const uid = (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
 
 // Compara prev/next (arrays de itens com `id`) e persiste as diferenças
@@ -744,13 +756,13 @@ function ClientsPage({ clients, setClients, reservations }) {
     const matchSearch = [c.name, c.whatsapp, c.address].join(' ').toLowerCase().includes(search.toLowerCase());
     if (!matchSearch) return false;
     if (filterMonth !== '' && filterYear !== '') {
-      const d = new Date(c.createdAt);
+      const d = parseLocalDate(c.createdAt);
       if (d.getMonth() !== Number(filterMonth) || d.getFullYear() !== Number(filterYear)) return false;
     }
     return true;
   });
 
-  const years = [...new Set(clients.map((c) => new Date(c.createdAt).getFullYear()))].sort((a, b) => b - a);
+  const years = [...new Set(clients.map((c) => parseLocalDate(c.createdAt).getFullYear()))].sort((a, b) => b - a);
 
   const openNew = () => { setEditing(null); setModalOpen(true); };
   const openEdit = (c) => { setEditing(c); setModalOpen(true); };
@@ -1153,7 +1165,7 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
   const dayReservations = selectedDay
     ? reservations.filter((r) => r.startDate === selectedDay)
     : reservations.filter((r) => {
-        const d = new Date(r.startDate);
+        const d = parseLocalDate(r.startDate);
         return d.getFullYear() === year && d.getMonth() === month;
       });
 
@@ -1564,7 +1576,7 @@ function FinancePage({ finance, setFinance }) {
   const [year, setYear] = useState(new Date().getFullYear());
 
   const filtered = finance.filter((f) => {
-    const d = new Date(f.date);
+    const d = parseLocalDate(f.date);
     return d.getMonth() === month && d.getFullYear() === year;
   }).sort((a, b) => (a.date < b.date ? 1 : -1));
 
@@ -1754,7 +1766,7 @@ function BudgetsPage({ reservations, clients, toys, company, budgets, setBudgets
   const now = new Date();
   const filteredBudgets = (budgets || []).filter((b) => {
     if (!filterMonth) return true;
-    const d = new Date(b.date);
+    const d = parseLocalDate(b.date);
     return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === filterMonth;
   }).sort((a,b) => b.date > a.date ? 1 : -1);
 
@@ -2335,7 +2347,7 @@ function StatsPage({ reservations, finance, toys }) {
   const periodReservations = useMemo(() => {
     return reservations.filter((r) => {
       if (r.status === 'cancelado') return false;
-      const d = new Date(r.startDate);
+      const d = parseLocalDate(r.startDate);
       return activeMonths.some((m) => d.getFullYear() === m.year && d.getMonth() === m.month);
     });
   }, [reservations, activeMonths]);
@@ -2345,13 +2357,13 @@ function StatsPage({ reservations, finance, toys }) {
       let receita = 0;
       for (const r of reservations) {
         if (r.status === 'cancelado') continue;
-        const d = new Date(r.startDate);
+        const d = parseLocalDate(r.startDate);
         if (d.getFullYear() === year && d.getMonth() === month) receita += Number(r.total) || 0;
       }
       let custo = 0;
       for (const f of finance) {
         if (f.type !== 'despesa') continue;
-        const d = new Date(f.date);
+        const d = parseLocalDate(f.date);
         if (d.getFullYear() === year && d.getMonth() === month) custo += Number(f.amount) || 0;
       }
       return { name: label, Receita: receita, Custo: custo };
@@ -2362,7 +2374,7 @@ function StatsPage({ reservations, finance, toys }) {
     return activeMonths.map(({ year, month, label }) => {
       const count = reservations.filter((r) => {
         if (r.status === 'cancelado') return false;
-        const d = new Date(r.startDate);
+        const d = parseLocalDate(r.startDate);
         return d.getFullYear() === year && d.getMonth() === month;
       }).length;
       return { name: label, Eventos: count };
@@ -2414,7 +2426,7 @@ function StatsPage({ reservations, finance, toys }) {
   // Eventos por dia da semana — dentro do período ativo, sem cancelados
   const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
   for (const r of periodReservations) {
-    const d = new Date(r.startDate);
+    const d = parseLocalDate(r.startDate);
     weekdayCounts[d.getDay()]++;
   }
   const maxWeekday = Math.max(1, ...weekdayCounts);
