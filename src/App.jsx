@@ -2410,7 +2410,7 @@ function StatsPage({ reservations, finance, toys }) {
     const toy = toys.find((t) => t.id === id);
     const stats = toyStats[id] || { units: 0, times: 0 };
     return { id, name: toy?.name || toyNames[id] || id, units: stats.units, times: stats.times };
-  }).filter((t) => t.units > 0).sort((a, b) => b.units - a.units).slice(0, 5);
+  }).filter((t) => t.units > 0).sort((a, b) => b.units - a.units);
 
   // Eventos por dia da semana — dentro do período ativo, sem cancelados
   const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
@@ -2496,11 +2496,13 @@ function StatsPage({ reservations, finance, toys }) {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16 }}>
         <Card>
-          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#3A3550', margin: '0 0 16px' }}>Brinquedos mais populares</h3>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#3A3550', margin: '0 0 16px' }}>
+            Brinquedos mais populares {popularToys.length > 0 ? `(${popularToys.length})` : ''}
+          </h3>
           {popularToys.length === 0 ? (
             <p style={{ fontSize: 13.5, color: '#A39EC0' }}>Ainda não há dados suficientes para este período.</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxHeight: 360, overflowY: 'auto', paddingRight: 6 }}>
               {popularToys.map((toy) => (
                 <div key={toy.id}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13.5 }}>
