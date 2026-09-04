@@ -2293,6 +2293,9 @@ function ReceiptsPage({ reservations, clients, company }) {
 // ESTATÍSTICAS
 // ============================================================
 function StatsPage({ reservations, finance, toys }) {
+  const [selectedPeriod, setSelectedPeriod] = useState('last12'); // 'last12' ou 'YYYY-MM'
+
+  // Últimos 12 meses (padrão)
   const last12 = useMemo(() => {
     const months = [];
     const now = new Date();
@@ -2303,84 +2306,115 @@ function StatsPage({ reservations, finance, toys }) {
     return months;
   }, []);
 
+  // Opções do seletor: últimos 24 meses individuais
+  const monthOptions = useMemo(() => {
+    const opts = [];
+    const now = new Date();
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      opts.push({
+        value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+        year: d.getFullYear(), month: d.getMonth(),
+        label: `${MONTHS_PT[d.getMonth()]} de ${d.getFullYear()}`,
+      });
+    }
+    return opts;
+  }, []);
+
+  // Meses que entram nos cálculos, conforme o período escolhido
+  const activeMonths = useMemo(() => {
+    if (selectedPeriod === 'last12') return last12;
+    const opt = monthOptions.find((o) => o.value === selectedPeriod);
+    if (!opt) return last12;
+    return [{ year: opt.year, month: opt.month, label: `${String(opt.month + 1).padStart(2, '0')}/${opt.year}` }];
+  }, [selectedPeriod, last12, monthOptions]);
+
+  const isSingleMonth = selectedPeriod !== 'last12';
+
+  // Base única para TODOS os cálculos abaixo — reservas não canceladas dentro do período ativo
+  const periodReservations = useMemo(() => {
+    return reservations.filter((r) => {
+      if (r.status === 'cancelado') return false;
+      const d = new Date(r.startDate);
+      return activeMonths.some((m) => d.getFullYear() === m.year && d.getMonth() === m.month);
+    });
+  }, [reservations, activeMonths]);
+
   const revenueVsCost = useMemo(() => {
-    return last12.map(({ year, month, label }) => {
-      // Receita: soma do valor das reservas daquele mês (exceto canceladas) — reflete o valor real do negócio
+    return activeMonths.map(({ year, month, label }) => {
       let receita = 0;
       for (const r of reservations) {
         if (r.status === 'cancelado') continue;
         const d = new Date(r.startDate);
-        if (d.getFullYear() === year && d.getMonth() === month) {
-          receita += Number(r.total) || 0;
-        }
+        if (d.getFullYear() === year && d.getMonth() === month) receita += Number(r.total) || 0;
       }
-      // Custo: soma das despesas lançadas no financeiro naquele mês
       let custo = 0;
       for (const f of finance) {
         if (f.type !== 'despesa') continue;
         const d = new Date(f.date);
-        if (d.getFullYear() === year && d.getMonth() === month) {
-          custo += Number(f.amount) || 0;
-        }
+        if (d.getFullYear() === year && d.getMonth() === month) custo += Number(f.amount) || 0;
       }
       return { name: label, Receita: receita, Custo: custo };
     });
-  }, [reservations, finance, last12]);
+  }, [reservations, finance, activeMonths]);
 
   const eventsPerMonth = useMemo(() => {
-    return last12.map(({ year, month, label }) => {
+    return activeMonths.map(({ year, month, label }) => {
       const count = reservations.filter((r) => {
+        if (r.status === 'cancelado') return false;
         const d = new Date(r.startDate);
         return d.getFullYear() === year && d.getMonth() === month;
       }).length;
       return { name: label, Eventos: count };
     });
-  }, [reservations, last12]);
-
-  const totalEvents = reservations.length;
-  // Receita total: soma do valor de todas as reservas não canceladas (reflete o faturamento real, não apenas o que foi lançado manualmente no financeiro)
-  const totalRevenue = reservations.filter((r) => r.status !== 'cancelado').reduce((s, r) => s + (Number(r.total) || 0), 0);
-  const toysRented = reservations.filter((r) => r.status !== 'cancelado').reduce((s, r) => s + r.items.reduce((x, i) => x + (i.quantity || 1), 0), 0);
+  }, [reservations, activeMonths]);
 
   const eventsVsToys = useMemo(() => {
-    return last12.map(({ year, month, label }) => {
+    return activeMonths.map(({ year, month, label }) => {
       const monthReservations = reservations.filter((r) => {
+        if (r.status === 'cancelado') return false;
         const d = new Date(r.startDate);
         return d.getFullYear() === year && d.getMonth() === month;
       });
       const eventos = monthReservations.length;
-      const brinquedos = monthReservations.reduce((s, r) => s + r.items.reduce((x, i) => x + i.quantity, 0), 0);
+      const brinquedos = monthReservations.reduce((s, r) => s + r.items.reduce((x, i) => x + (i.quantity || 1), 0), 0);
       return { name: label, Eventos: eventos, 'Brinquedos alugados': brinquedos };
     });
-  }, [reservations, last12]);
+  }, [reservations, activeMonths]);
+
+  // Cards de resumo — agora usam a mesma base (periodReservations) dos gráficos acima,
+  // então nunca mais divergem entre si.
+  const totalEvents = periodReservations.length;
+  const totalRevenue = periodReservations.reduce((s, r) => s + (Number(r.total) || 0), 0);
+  const toysRented = periodReservations.reduce((s, r) => s + r.items.reduce((x, i) => x + (i.quantity || 1), 0), 0);
 
   const ticketMedioEvento = totalEvents > 0 ? totalRevenue / totalEvents : 0;
   const ticketMedioBrinquedo = toysRented > 0 ? totalRevenue / toysRented : 0;
 
-  // Brinquedos mais populares — conta quantidade total alugada por brinquedo
-  const toyCounts = {};
-  const toyNames = {}; // guarda o nome mesmo se o brinquedo foi removido do cadastro
-  for (const r of reservations) {
-    if (r.status === 'cancelado') continue;
+  // Brinquedos mais populares — agora separa UNIDADES alugadas de VEZES (nº de reservas)
+  const toyStats = {};
+  const toyNames = {};
+  for (const r of periodReservations) {
     for (const item of r.items) {
-      toyCounts[item.toyId] = (toyCounts[item.toyId] || 0) + (item.quantity || 1);
-      // tenta puxar nome do cadastro atual, senão mantém o que já tinha
+      if (!toyStats[item.toyId]) toyStats[item.toyId] = { units: 0, times: 0 };
+      toyStats[item.toyId].units += item.quantity || 1;
+      toyStats[item.toyId].times += 1;
       const toy = toys.find((t) => t.id === item.toyId);
       if (toy) toyNames[item.toyId] = toy.name;
       else if (!toyNames[item.toyId]) toyNames[item.toyId] = `Brinquedo #${item.toyId}`;
     }
   }
-  const maxCount = Math.max(1, ...Object.values(toyCounts).length ? Object.values(toyCounts) : [1]);
-  // inclui todos os brinquedos que já foram alugados (mesmo os não cadastrados) + os do catálogo com count 0
-  const allToyIds = new Set([...toys.map((t) => t.id), ...Object.keys(toyCounts)]);
+  const maxUnits = Math.max(1, ...(Object.values(toyStats).length ? Object.values(toyStats).map((t) => t.units) : [1]));
+  const allToyIds = new Set([...toys.map((t) => t.id), ...Object.keys(toyStats)]);
   const popularToys = Array.from(allToyIds).map((id) => {
     const toy = toys.find((t) => t.id === id);
-    return { id, name: toy?.name || toyNames[id] || id, count: toyCounts[id] || 0 };
-  }).filter((t) => t.count > 0).sort((a, b) => b.count - a.count).slice(0, 5);
+    const stats = toyStats[id] || { units: 0, times: 0 };
+    return { id, name: toy?.name || toyNames[id] || id, units: stats.units, times: stats.times };
+  }).filter((t) => t.units > 0).sort((a, b) => b.units - a.units).slice(0, 5);
 
-  // Eventos por dia da semana
+  // Eventos por dia da semana — dentro do período ativo, sem cancelados
   const weekdayCounts = [0, 0, 0, 0, 0, 0, 0];
-  for (const r of reservations) {
+  for (const r of periodReservations) {
     const d = new Date(r.startDate);
     weekdayCounts[d.getDay()]++;
   }
@@ -2388,7 +2422,17 @@ function StatsPage({ reservations, finance, toys }) {
 
   return (
     <div>
-      <PageHeader icon={BarChart3} title="Estatísticas" subtitle="Análise completa dos últimos 12 meses" accent="linear-gradient(135deg,#6FE3EE,#34C9D8)" />
+      <PageHeader
+        icon={BarChart3}
+        title="Estatísticas"
+        subtitle={isSingleMonth ? `Análise de ${activeMonths[0].label.split('/')[1] ? MONTHS_PT[activeMonths[0].month] + ' de ' + activeMonths[0].year : activeMonths[0].label}` : 'Análise completa dos últimos 12 meses'}
+        accent="linear-gradient(135deg,#6FE3EE,#34C9D8)"
+      >
+        <Select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)} style={{ width: 200 }}>
+          <option value="last12">Últimos 12 meses</option>
+          {monthOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </Select>
+      </PageHeader>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 16, marginBottom: 20 }}>
         <StatCard icon={CalendarDays} label="Total de eventos" value={totalEvents} color="#5B4FCF" bg="#EFEDFC" />
@@ -2453,18 +2497,18 @@ function StatsPage({ reservations, finance, toys }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 16 }}>
         <Card>
           <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#3A3550', margin: '0 0 16px' }}>Brinquedos mais populares</h3>
-          {popularToys.length === 0 || popularToys.every((t) => t.count === 0) ? (
-            <p style={{ fontSize: 13.5, color: '#A39EC0' }}>Ainda não há dados suficientes.</p>
+          {popularToys.length === 0 ? (
+            <p style={{ fontSize: 13.5, color: '#A39EC0' }}>Ainda não há dados suficientes para este período.</p>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {popularToys.map((toy) => (
                 <div key={toy.id}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 13.5 }}>
-                    <span style={{ fontWeight: 700, color: '#3A3550' }}>{toy.name} - {Math.round((toy.count / maxCount) * 100)}%</span>
-                    <span style={{ color: '#A39EC0' }}>{toy.count} vez{toy.count !== 1 ? 'es' : ''}</span>
+                    <span style={{ fontWeight: 700, color: '#3A3550' }}>{toy.name} - {Math.round((toy.units / maxUnits) * 100)}%</span>
+                    <span style={{ color: '#A39EC0' }}>{toy.units} unidade{toy.units !== 1 ? 's' : ''} em {toy.times} reserva{toy.times !== 1 ? 's' : ''}</span>
                   </div>
                   <div style={{ height: 8, borderRadius: 999, background: '#F4F1FB', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${(toy.count / maxCount) * 100}%`, background: 'linear-gradient(90deg,#7F77DD,#5B4FCF)', borderRadius: 999 }} />
+                    <div style={{ height: '100%', width: `${(toy.units / maxUnits) * 100}%`, background: 'linear-gradient(90deg,#7F77DD,#5B4FCF)', borderRadius: 999 }} />
                   </div>
                 </div>
               ))}
