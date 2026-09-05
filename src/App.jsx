@@ -95,6 +95,7 @@ const CLIENT_SOURCES = [
   { value: 'site', label: 'Site', color: '#5B4FCF' },
   { value: 'desconhecido', label: 'Desconhecido', color: '#B6AFD6' },
   { value: 'instagram', label: 'Instagram', color: '#E1306C' },
+  { value: 'cliente_recorrente', label: 'Cliente Recorrente', color: '#FF9F4A' },
 ];
 const sourceLabel = (value) => CLIENT_SOURCES.find((s) => s.value === value)?.label || 'Desconhecido';
 const sourceColor = (value) => CLIENT_SOURCES.find((s) => s.value === value)?.color || '#B6AFD6';
