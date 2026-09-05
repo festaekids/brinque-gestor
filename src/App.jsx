@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line,
-  CartesianGrid, XAxis, YAxis, Tooltip, Legend
+  CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell
 } from 'recharts';
 import {
   loadAllData, upsertToy, deleteToy, upsertClient, deleteClient,
@@ -84,6 +84,20 @@ const STATUS_STYLES = {
   concluido: { bg: '#E3E0FB', text: '#5B4FCF', label: 'Concluído' },
   cancelado: { bg: '#FCE0E4', text: '#C13B5A', label: 'Cancelado' },
 };
+
+// Origem/canal de onde o cliente veio — usado no formulário de reserva e no
+// gráfico "De onde vêm os clientes" nas Estatísticas.
+const CLIENT_SOURCES = [
+  { value: 'facebook_marketplace', label: 'Facebook Marketplace', color: '#1877F2' },
+  { value: 'facebook_patrocinado', label: 'Facebook Patrocinado', color: '#0C44AE' },
+  { value: 'google_meu_negocio', label: 'Google Meu Negócio', color: '#34A853' },
+  { value: 'google_ads', label: 'Google Ads', color: '#FBBC05' },
+  { value: 'site', label: 'Site', color: '#5B4FCF' },
+  { value: 'desconhecido', label: 'Desconhecido', color: '#B6AFD6' },
+  { value: 'instagram', label: 'Instagram', color: '#E1306C' },
+];
+const sourceLabel = (value) => CLIENT_SOURCES.find((s) => s.value === value)?.label || 'Desconhecido';
+const sourceColor = (value) => CLIENT_SOURCES.find((s) => s.value === value)?.color || '#B6AFD6';
 
 // ============================================================
 // COMPONENTES VISUAIS REUTILIZÁVEIS
@@ -894,7 +908,7 @@ function ReservationForm({ initial, toys, clients, reservations, onSave, onCance
     clientId: '', address: '',
     startDate: todayISO(), startTime: '10:00',
     endDate: '', endTime: '14:00',
-    items: [], total: '', discount: '', notes: '', status: 'pendente',
+    items: [], total: '', discount: '', notes: '', status: 'pendente', source: 'desconhecido',
   });
   const [clientSearch, setClientSearch] = useState('');
   const [showClientList, setShowClientList] = useState(false);
@@ -1100,6 +1114,12 @@ function ReservationForm({ initial, toys, clients, reservations, onSave, onCance
         </Select>
       </Field>
 
+      <Field label="De onde veio esse cliente?">
+        <Select value={form.source || 'desconhecido'} onChange={(e) => setForm({ ...form, source: e.target.value })}>
+          {CLIENT_SOURCES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </Select>
+      </Field>
+
       <Field label="Observações">
         <Textarea placeholder="Adicione observações relevantes sobre a reserva..." value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
       </Field>
@@ -1177,7 +1197,7 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
   };
 
   const openNew = (dayIso) => {
-    setEditing(dayIso ? { startDate: dayIso, startTime: '10:00', endDate: dayIso, endTime: '14:00', clientId: '', address: '', items: [], total: '', deposit: '', notes: '', status: 'pendente' } : null);
+    setEditing(dayIso ? { startDate: dayIso, startTime: '10:00', endDate: dayIso, endTime: '14:00', clientId: '', address: '', items: [], total: '', deposit: '', notes: '', status: 'pendente', source: 'desconhecido' } : null);
     setModalOpen(true);
   };
   const openEdit = (r) => {
@@ -2431,6 +2451,18 @@ function StatsPage({ reservations, finance, toys }) {
   }
   const maxWeekday = Math.max(1, ...weekdayCounts);
 
+  // De onde vêm os clientes — conta as reservas do período por origem declarada
+  const sourceCounts = {};
+  for (const r of periodReservations) {
+    const key = r.source || 'desconhecido';
+    sourceCounts[key] = (sourceCounts[key] || 0) + 1;
+  }
+  const sourceBreakdown = CLIENT_SOURCES
+    .map((s) => ({ name: s.label, value: sourceCounts[s.value] || 0, color: s.color }))
+    .filter((s) => s.value > 0)
+    .sort((a, b) => b.value - a.value);
+  const totalSourceCount = sourceBreakdown.reduce((s, x) => s + x.value, 0);
+
   return (
     <div>
       <PageHeader
@@ -2557,6 +2589,37 @@ function StatsPage({ reservations, finance, toys }) {
               );
             })}
           </div>
+        </Card>
+        <Card>
+          <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 700, color: '#3A3550', margin: '0 0 16px' }}>De onde vêm os clientes</h3>
+          {sourceBreakdown.length === 0 ? (
+            <p style={{ fontSize: 13.5, color: '#A39EC0' }}>Ainda não há dados suficientes para este período.</p>
+          ) : (
+            <>
+              <div style={{ height: 180 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={sourceBreakdown} dataKey="value" nameKey="name" innerRadius={50} outerRadius={78} paddingAngle={2} strokeWidth={0}>
+                      {sourceBreakdown.map((entry, idx) => <Cell key={idx} fill={entry.color} />)}
+                    </Pie>
+                    <Tooltip formatter={(v) => [`${v} reserva${v !== 1 ? 's' : ''}`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #ECE8F7', fontSize: 12.5 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginTop: 4 }}>
+                {sourceBreakdown.map((s) => {
+                  const pct = totalSourceCount > 0 ? Math.round((s.value / totalSourceCount) * 100) : 0;
+                  return (
+                    <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+                      <span style={{ flex: 1, color: '#3A3550', fontWeight: 600 }}>{s.name}</span>
+                      <span style={{ color: '#A39EC0' }}>{s.value} ({pct}%)</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </Card>
       </div>
     </div>
