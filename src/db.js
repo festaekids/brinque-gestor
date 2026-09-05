@@ -42,6 +42,7 @@ function rowToReservation(row) {
     endDate: row.end_date || '', endTime: row.end_time || '',
     items: row.items || [], total: row.total ?? 0, deposit: row.deposit ?? 0,
     notes: row.notes || '', status: row.status || 'pendente',
+    source: row.source || 'desconhecido',
   };
 }
 function reservationToRow(r) {
@@ -51,6 +52,7 @@ function reservationToRow(r) {
     end_date: r.endDate || null, end_time: r.endTime || null,
     items: r.items || [], total: Number(r.total) || 0, deposit: Number(r.deposit) || 0,
     notes: r.notes || '', status: r.status || 'pendente',
+    source: r.source || 'desconhecido',
   };
 }
 
