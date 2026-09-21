@@ -96,6 +96,7 @@ const CLIENT_SOURCES = [
   { value: 'desconhecido', label: 'Desconhecido', color: '#B6AFD6' },
   { value: 'instagram', label: 'Instagram', color: '#E1306C' },
   { value: 'cliente_recorrente', label: 'Cliente Recorrente', color: '#FF9F4A' },
+  { value: 'indicacao_cliente', label: 'Indicação de Cliente', color: '#2BC99A' },
 ];
 const sourceLabel = (value) => CLIENT_SOURCES.find((s) => s.value === value)?.label || 'Desconhecido';
 const sourceColor = (value) => CLIENT_SOURCES.find((s) => s.value === value)?.color || '#B6AFD6';
@@ -1314,11 +1315,11 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
               <thead>
                 <tr style={{ textAlign: 'left', color: '#A39EC0', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid #F4F1FB' }}>
                   <th style={{ padding: '0 10px 12px 0' }}>Cliente</th>
+                  <th style={{ padding: '0 10px 12px' }}>Status</th>
                   <th style={{ padding: '0 10px 12px' }}>Endereço da festa</th>
                   <th style={{ padding: '0 10px 12px' }}>Data</th>
                   <th style={{ padding: '0 10px 12px' }}>Brinquedo</th>
                   <th style={{ padding: '0 10px 12px' }}>Valores</th>
-                  <th style={{ padding: '0 10px 12px' }}>Status</th>
                   <th style={{ padding: '0 10px 12px' }}>Observações</th>
                   <th style={{ padding: '0 10px 12px', textAlign: 'right' }}>Ações</th>
                 </tr>
@@ -1336,6 +1337,11 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                         <p style={{ margin: 0, fontWeight: 800, color: '#3A3550', fontSize: 14 }}>{client?.name || '—'}</p>
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>{client?.address}</p>
                         <p style={{ margin: '1px 0 0', fontSize: 12, color: '#B6AFD6' }}>{client?.whatsapp}</p>
+                      </td>
+                      <td style={{ padding: '14px 10px', minWidth: 110 }}>
+                        <button onClick={() => cycleStatus(r)} style={{ border: 'none', cursor: 'pointer', background: 'none', padding: 0 }} title="Clique para avançar o status">
+                          <Badge bg={st.bg} color={st.text}>{st.label}</Badge>
+                        </button>
                       </td>
                       <td style={{ padding: '14px 10px', minWidth: 130 }}>
                         {r.address ? (
@@ -1368,11 +1374,6 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                         <p style={{ margin: 0, fontSize: 13, color: '#3A3550' }}>Total: <b>{fmtMoney(r.total)}</b></p>
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>Desconto: {fmtMoney(r.deposit)}</p>
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>A pagar: {fmtMoney(remaining)}</p>
-                      </td>
-                      <td style={{ padding: '14px 10px', minWidth: 110 }}>
-                        <button onClick={() => cycleStatus(r)} style={{ border: 'none', cursor: 'pointer', background: 'none', padding: 0 }} title="Clique para avançar o status">
-                          <Badge bg={st.bg} color={st.text}>{st.label}</Badge>
-                        </button>
                       </td>
                       <td style={{ padding: '14px 10px', color: '#8A84A3', fontStyle: 'italic', fontSize: 12.5, minWidth: 120 }}>
                         {r.notes || <span style={{ color: '#D8D4EA' }}>—</span>}
