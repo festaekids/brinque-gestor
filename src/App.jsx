@@ -1317,10 +1317,10 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                   <th style={{ padding: '0 10px 12px 0' }}>Cliente</th>
                   <th style={{ padding: '0 10px 12px' }}>Status</th>
                   <th style={{ padding: '0 10px 12px' }}>Endereço da festa</th>
-                  <th style={{ padding: '0 10px 12px' }}>Data</th>
+                  <th style={{ padding: '0 10px 12px' }}>Observações</th>
                   <th style={{ padding: '0 10px 12px' }}>Brinquedo</th>
                   <th style={{ padding: '0 10px 12px' }}>Valores</th>
-                  <th style={{ padding: '0 10px 12px' }}>Observações</th>
+                  <th style={{ padding: '0 10px 12px' }}>Data</th>
                   <th style={{ padding: '0 10px 12px', textAlign: 'right' }}>Ações</th>
                 </tr>
               </thead>
@@ -1355,12 +1355,8 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                           </a>
                         ) : <span style={{ color: '#D8D4EA' }}>—</span>}
                       </td>
-                      <td style={{ padding: '14px 10px', color: '#6F6A8A', whiteSpace: 'nowrap', minWidth: 130 }}>
-                        {fmtDate(r.startDate)}
-                        {r.endDate && r.endDate !== r.startDate && r.endDate !== r.startDate
-                          ? <><br/>{fmtDate(r.endDate)}</>
-                          : null
-                        }
+                      <td style={{ padding: '14px 10px', color: '#8A84A3', fontStyle: 'italic', fontSize: 12.5, minWidth: 120 }}>
+                        {r.notes || <span style={{ color: '#D8D4EA' }}>—</span>}
                       </td>
                       <td style={{ padding: '14px 10px', minWidth: 140 }}>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -1375,8 +1371,12 @@ function ReservationsPage({ reservations, setReservations, toys, clients, setCli
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>Desconto: {fmtMoney(r.deposit)}</p>
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: '#A39EC0' }}>A pagar: {fmtMoney(remaining)}</p>
                       </td>
-                      <td style={{ padding: '14px 10px', color: '#8A84A3', fontStyle: 'italic', fontSize: 12.5, minWidth: 120 }}>
-                        {r.notes || <span style={{ color: '#D8D4EA' }}>—</span>}
+                      <td style={{ padding: '14px 10px', color: '#6F6A8A', whiteSpace: 'nowrap', minWidth: 130 }}>
+                        {fmtDate(r.startDate)}
+                        {r.endDate && r.endDate !== r.startDate && r.endDate !== r.startDate
+                          ? <><br/>{fmtDate(r.endDate)}</>
+                          : null
+                        }
                       </td>
                       <td style={{ padding: '14px 10px', textAlign: 'right', minWidth: 130 }}>
                         <div style={{ display: 'flex', gap: 5, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
