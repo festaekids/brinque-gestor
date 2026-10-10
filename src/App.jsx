@@ -13,6 +13,7 @@ import {
 import {
   loadAllData, upsertToy, deleteToy, upsertClient, deleteClient,
   upsertReservation, deleteReservation, upsertFinance, deleteFinance, saveCompany,
+  loadToyImage, loadCompanyLogo,
 } from './db';
 import { logout } from './LoginScreen';
 
@@ -45,6 +46,31 @@ function parseLocalDate(iso) {
   if (!iso) return new Date(NaN);
   const [y, m, d] = iso.split('-').map(Number);
   return new Date(y, (m || 1) - 1, d || 1);
+}
+
+// Reduz a foto antes de salvar (máx. 900px, JPEG 80%) para não pesar no banco.
+function compressImage(file, maxSize = 900, quality = 0.8) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onerror = () => resolve(reader.result); // se falhar, usa o original
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        const isPng = file.type === 'image/png';
+        if (!isPng) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL(isPng ? 'image/png' : 'image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 const uid = (prefix) => `${prefix}_${Math.random().toString(36).slice(2, 9)}`;
@@ -559,9 +585,7 @@ function ToyForm({ initial, onSave, onCancel }) {
   const handleImage = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setForm((f) => ({ ...f, image: reader.result }));
-    reader.readAsDataURL(file);
+    compressImage(file).then((dataUrl) => setForm((f) => ({ ...f, image: dataUrl })));
   };
 
   return (
@@ -2638,9 +2662,7 @@ function CompanyPage({ company, setCompany }) {
   const handleLogo = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setForm((f) => ({ ...f, logo: reader.result }));
-    reader.readAsDataURL(file);
+    compressImage(file, 500).then((dataUrl) => setForm((f) => ({ ...f, logo: dataUrl })));
   };
 
   const handleSave = () => {
@@ -2749,10 +2771,26 @@ export default function App() {
       setReservationsState(data.reservations);
       setFinanceState(data.finance);
       setCompanyState(data.company);
+      loadImagesInBackground(data.toys);
     } catch (err) {
       setLoadError(err?.message || 'Erro ao carregar dados.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Busca as fotos dos brinquedos e a logo depois da tela já estar pronta,
+  // uma por vez, para nenhuma consulta estourar o tempo limite do Supabase.
+  const loadImagesInBackground = async (toyList) => {
+    try {
+      const logo = await loadCompanyLogo();
+      setCompanyState((c) => ({ ...c, logo }));
+    } catch (err) { console.error('Erro ao carregar logo:', err); }
+    for (const t of toyList) {
+      try {
+        const image = await loadToyImage(t.id);
+        setToysState((prev) => prev.map((x) => (x.id === t.id ? { ...x, image } : x)));
+      } catch (err) { console.error('Erro ao carregar foto do brinquedo:', t.id, err); }
     }
   };
 
@@ -2990,4 +3028,4 @@ export default function App() {
       </div>
     </div>
   );
-}
+}

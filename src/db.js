@@ -8,7 +8,10 @@ import { supabase } from './supabaseClient';
 function rowToToy(row) {
   return {
     id: row.id, name: row.name, size: row.size || '',
-    quantity: row.quantity ?? 0, price: row.price ?? '', image: row.image || null,
+    quantity: row.quantity ?? 0, price: row.price ?? '',
+    // image fica 'undefined' até ser carregada separadamente (loadToyImage).
+    // Só vem preenchida se a linha trouxer a coluna.
+    image: 'image' in row ? (row.image || null) : undefined,
   };
 }
 function toyToRow(toy) {
@@ -16,7 +19,9 @@ function toyToRow(toy) {
     id: toy.id, name: toy.name, size: toy.size || '',
     quantity: Number(toy.quantity) || 0,
     price: toy.price === '' || toy.price == null ? null : Number(toy.price),
-    image: toy.image || null,
+    // Se a imagem ainda não foi carregada (undefined), NÃO envia a coluna,
+    // para não apagar a foto que já está salva no banco.
+    ...(toy.image !== undefined ? { image: toy.image || null } : {}),
   };
 }
 
@@ -72,7 +77,8 @@ function financeToRow(f) {
 function rowToCompany(row) {
   return {
     name: row.name || '', cnpj: row.cnpj || '', phone: row.phone || '',
-    email: row.email || '', address: row.address || '', logo: row.logo || null,
+    email: row.email || '', address: row.address || '',
+    logo: 'logo' in row ? (row.logo || null) : undefined,
   };
 }
 
@@ -81,11 +87,13 @@ function rowToCompany(row) {
 // ============================================================
 export async function loadAllData() {
   const [toysRes, clientsRes, reservationsRes, financeRes, companyRes] = await Promise.all([
-    supabase.from('toys').select('*').order('created_at', { ascending: true }),
+    // Sem a coluna 'image' (base64 pesado): as fotos são carregadas depois, uma a uma.
+    supabase.from('toys').select('id,name,size,quantity,price,created_at').order('created_at', { ascending: true }),
     supabase.from('clients').select('*').order('created_at', { ascending: true }),
     supabase.from('reservations').select('*').order('start_date', { ascending: true }),
     supabase.from('finance').select('*').order('date', { ascending: true }),
-    supabase.from('company').select('*').eq('id', 1).maybeSingle(),
+    // Sem a coluna 'logo' (base64 pesado): carregada depois por loadCompanyLogo().
+    supabase.from('company').select('id,name,cnpj,phone,email,address').eq('id', 1).maybeSingle(),
   ]);
 
   const errors = [toysRes, clientsRes, reservationsRes, financeRes, companyRes]
@@ -102,6 +110,20 @@ export async function loadAllData() {
     finance: (financeRes.data || []).map(rowToFinance),
     company: companyRes.data ? rowToCompany(companyRes.data) : { name: '', cnpj: '', phone: '', email: '', address: '', logo: null },
   };
+}
+
+// ============================================================
+// IMAGENS (carregadas em segundo plano, uma por vez)
+// ============================================================
+export async function loadToyImage(id) {
+  const { data, error } = await supabase.from('toys').select('image').eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data?.image || null;
+}
+export async function loadCompanyLogo() {
+  const { data, error } = await supabase.from('company').select('logo').eq('id', 1).maybeSingle();
+  if (error) throw error;
+  return data?.logo || null;
 }
 
 // ============================================================
@@ -156,6 +178,9 @@ export async function deleteFinance(id) {
 // EMPRESA (linha única, id = 1)
 // ============================================================
 export async function saveCompany(company) {
-  const { error } = await supabase.from('company').upsert({ id: 1, ...company });
+  // Se a logo ainda não foi carregada (undefined), não envia a coluna.
+  const payload = { id: 1, ...company };
+  if (payload.logo === undefined) delete payload.logo;
+  const { error } = await supabase.from('company').upsert(payload);
   if (error) throw error;
 }
